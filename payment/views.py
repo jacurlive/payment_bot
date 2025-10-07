@@ -3,6 +3,8 @@ from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django.db.models import Sum, Count
+from django.db.models.functions import TruncDate
 
 from .models import Bot, SubscriptionPlan, User, Subscription, Payment
 from .serializers import (
@@ -106,6 +108,57 @@ class PaymentViewSet(viewsets.ModelViewSet):
             "status": "success",
             "subscription_id": sub.id,
             "payment_id": payment.id
+        })
+
+
+    @action(detail=False, methods=["get"])
+    def report(self, request):
+
+        """
+        Возвращает агрегированные данные о платежах за выбранный период.
+        Пример запроса:
+        /api/payments/report/?from=2025-09-01&to=2025-09-30
+        """
+
+        from_date = request.GET.get("from")
+        to_date = request.GET.get("to")
+
+        qs = Payment.objects.filter(status="success")
+
+        if from_date:
+            qs = qs.filter(created_at__date__gte=from_date)
+        if to_date:
+            qs = qs.filter(created_at__date__lte=to_date)
+
+        total_revenue = qs.aggregate(total=Sum("amount"))["total"] or 0
+        total_payments = qs.count()
+
+        by_method = (
+            qs.values("method")
+            .annotate(count=Count("id"), amount=Sum("amount"))
+            .order_by()
+        )
+        by_method_dict = {
+            item["method"]: {"count": item["count"], "amount": item["amount"] or 0}
+            for item in by_method
+        }
+
+        by_bot = (
+            qs.values("bot__username")
+            .annotate(count=Count("id"), amount=Sum("amount"))
+            .order_by()
+        )
+        by_bot_list = [
+            {"bot": item["bot__username"], "count": item["count"], "amount": item["amount"] or 0}
+            for item in by_bot
+        ]
+
+        return Response({
+            "total_revenue": total_revenue,
+            "total_payments": total_payments,
+            "by_method": by_method_dict,
+            "by_bot": by_bot_list,
+            "period": {"from": from_date, "to": to_date},
         })
 
 

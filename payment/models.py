@@ -44,6 +44,9 @@ class Subscription(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return str(self.plan)
+
 
 class Payment(models.Model):
     PAYMENTS_METHODS = (
