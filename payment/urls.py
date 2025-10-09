@@ -6,6 +6,8 @@ from .views import (
     UserViewSet,
     SubscriptionViewSet,
     PaymentViewSet,
+    FullPaymentReportView,
+    PaymentSummaryReportView,
     is_subscribed,
     subscribers,
 )
@@ -21,4 +23,6 @@ urlpatterns = [
     path("", include(router.urls)),
     path("is_subscribed/", is_subscribed),
     path("subscribers/", subscribers),
+    path("reports/payments/", FullPaymentReportView.as_view()),
+    path("reports/payments/summary/", PaymentSummaryReportView.as_view())
 ]

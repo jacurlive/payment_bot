@@ -10,7 +10,7 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Bot)
 class BotAdmin(admin.ModelAdmin):
-    list_display = ("username", "title", "created_at")
+    list_display = ("id", "username", "title", "created_at")
     list_display_links = ("username", "title", "created_at")
 
 
