@@ -233,6 +233,13 @@ class BotViewSet(viewsets.ModelViewSet):
     queryset = Bot.objects.all()
     serializer_class = BotSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        username = self.request.query_params.get("username")
+        if username:
+            qs = qs.filter(username__iexact=username)
+        return qs
+
 
 class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     queryset = SubscriptionPlan.objects.all()
