@@ -1,5 +1,6 @@
 import io
 
+from aiohttp import request
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.decorators import action, api_view
@@ -244,6 +245,13 @@ class BotViewSet(viewsets.ModelViewSet):
 class SubscriptionPlanViewSet(viewsets.ModelViewSet):
     queryset = SubscriptionPlan.objects.all()
     serializer_class = SubscriptionPlanSerializer
+
+    def get_queryset(self):
+        queryset = SubscriptionPlan.objects.all()
+        bot_id = self.request.query_params.get("bot_id")
+        if bot_id:
+            queryset = queryset.filter(bot_id=bot_id)
+        return queryset
 
 
 class UserViewSet(viewsets.ModelViewSet):

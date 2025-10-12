@@ -111,7 +111,7 @@ async def get_plans_for_bot(bot_id: int) -> list:
     headers = {"Authorization": f"Bearer {token}"} if token else {}
 
     try:
-        resp = await http_client.get(f"{BACKEND_URL}/api/plans/", params={"bot": bot_id}, headers=headers)
+        resp = await http_client.get(f"{BACKEND_URL}/api/plans/?bot_id={bot_id}", headers=headers)
         if resp.status_code == 200:
             return resp.json()
     except Exception as e:
@@ -189,7 +189,7 @@ async def cmd_start(message: types.Message, command: CommandObject, state: FSMCo
             return
 
         kb = plans_to_kb(plans, backend_bot["id"])
-        await message.answer(f"Вы выбрали бота <b>{backend_bot['username']}</b>. Выберите тариф:", reply_markup=kb)
+        await message.answer(f"Вы выбрали бота <b>{backend_bot['username']}</b>. Выберите тариф:", reply_markup=kb, parse_mode="html")
         return
 
     # ✅ Если аргументов нет — показываем список всех ботов
@@ -218,7 +218,7 @@ async def select_bot_callback(callback: types.CallbackQuery):
         return
 
     kb = plans_to_kb(plans, backend_bot["id"])
-    await callback.message.edit_text(f"Вы выбрали бота <b>{backend_bot['username']}</b>. Выберите тариф:", reply_markup=kb)
+    await callback.message.edit_text(f"Вы выбрали бота <b>{backend_bot['username']}</b>. Выберите тариф:", reply_markup=kb, parse_mode="html")
     await callback.answer()
 
 
@@ -254,7 +254,7 @@ async def handle_buy(callback: types.CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="💳 Оплатить (тест)", callback_data=f"do_payment:{bot_id}:{plan_id}")],
         [InlineKeyboardButton(text="Отмена", callback_data="cancel")],
     ])
-    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="html")
     await callback.answer()
 
 
@@ -286,7 +286,7 @@ async def handle_payment(callback: types.CallbackQuery):
                         f"Метод: <b>stub</b>\n"
                         f"План ID: <b>{plan_id}</b>\n"
                         f"Бот ID: <b>{bot_id}</b>"
-                    ),
+                    ), parse_mode="html"
                 )
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)
