@@ -12,8 +12,8 @@ dp = Dispatcher(storage=MemoryStorage())
 # Регистрация хендлеров
 dp.include_router(start.router)
 dp.include_router(buy.router)
-# dp.include_router(payments.router)
-# dp.include_router(common.router)
+dp.include_router(payments.router)
+dp.include_router(common.router)
 
 async def main():
     await dp.start_polling(bot)

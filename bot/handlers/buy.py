@@ -1,4 +1,6 @@
 from aiogram import types, F, Router
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ..core.utils import get_plans_for_bot, create_mock_payment
@@ -27,13 +29,18 @@ async def handle_buy(callback: types.CallbackQuery, state: FSMContext):
     text = (
         f"Вы выбрали: <b>{plan['name']}</b>\n"
         f"💰 Цена: <b>{plan['price']}</b>\n\n"
-        "Для теста нажмите кнопку ниже — это имитация оплаты."
+        "Выберите способ оплаты:"
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить (тест)", callback_data=f"do_payment:{bot_id}:{plan_id}")],
-        [InlineKeyboardButton(text="Отмена", callback_data="cancel")],
+        [InlineKeyboardButton(text="💫 Telegram Stars", callback_data=f"pay_stars:{bot_id}:{plan_id}")],
+        [InlineKeyboardButton(text="🪙 CryptoBot", callback_data=f"pay_crypto:{bot_id}:{plan_id}")],
+        [InlineKeyboardButton(text="Click", callback_data=f"pay_click:{bot_id}:{plan_id}")],
+        [InlineKeyboardButton(text="PayMe", callback_data=f"pay_payme:{bot_id}:{plan_id}")],
+        [InlineKeyboardButton(text="💳 Тестовая оплата", callback_data=f"do_payment:{bot_id}:{plan_id}")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")]
     ])
+
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="html")
     await callback.answer()
 
@@ -72,3 +79,22 @@ async def handle_payment(callback: types.CallbackQuery):
             logger.exception("Failed to send admin notification: %s", e)
     else:
         await callback.message.edit_text("❗ Платёж не удался или в статусе pending.")
+
+
+@router.message(Command("refund"))
+async def cmd_refund(message: types.Message):
+    t_id = "stx4s3mM5KRzLXmF7NbECfA-_jcYozXl3nZhicJjkVPIs8OFmFXt4pQ2FbAX_uQdodCQuEW_0ei5uhtJWUVS7pheDa0gPFP1JMLKrF-wvu8mG8"
+
+    if t_id is None:
+        await message.answer("Transaction not found!")
+        return
+
+    try:
+        await bot.refund_star_payment(
+            user_id=message.from_user.id,
+            telegram_payment_charge_id=t_id
+        )
+        await message.answer("Done")
+
+    except TelegramBadRequest as e:
+        print(e)
