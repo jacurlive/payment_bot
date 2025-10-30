@@ -126,8 +126,9 @@ async def handle_telegram_stars_payment(callback: types.CallbackQuery):
     try:
         _, bot_id_str, plan_id_str = callback.data.split(":")
         bot_id, plan_id = int(bot_id_str), int(plan_id_str)
-    except Exception:
+    except Exception as e:
         await callback.answer("Ошибка данных кнопки", show_alert=True)
+        logger.exception(f"Error: {e}")
         return
 
     plans = await get_plans_for_bot(bot_id)
@@ -141,7 +142,7 @@ async def handle_telegram_stars_payment(callback: types.CallbackQuery):
     logger.info(f"Converted {price_uzs} UZS → {price_stars} Stars (rate {STARS_RATE})")
 
 
-    price = [LabeledPrice(label=plan["name"], amount=1)]
+    price = [LabeledPrice(label=plan["name"], amount=price_stars)]
     title = plan["name"]
     description = f"Подписка на {plan['duration_days']} дней"
 
