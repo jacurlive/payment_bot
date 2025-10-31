@@ -58,6 +58,8 @@ from .serializers import (
 
 
 class FullPaymentReportView(APIView):
+    authentication_classes = []  # отключаем DRF авторизацию
+    permission_classes = []
 
     def get(self, request):
         date_from_str = request.query_params.get("from")
