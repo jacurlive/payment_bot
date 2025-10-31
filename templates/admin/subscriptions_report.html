@@ -1,0 +1,42 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+
+<form method="get" style="margin-bottom: 20px;">
+    <label>С даты: <input type="date" name="from" value="{{ date_from }}"></label>
+    <label>По дату: <input type="date" name="to" value="{{ date_to }}"></label>
+    <button type="submit" class="button">Показать</button>
+    <a href="{% url 'admin:subscriptions-report' %}?from={{ date_from }}&to={{ date_to }}&download=1" class="button">⬇️ Скачать Excel</a>
+</form>
+
+<h3>Общая статистика</h3>
+<ul>
+  <li>Всего платежей: <b>{{ stats.total_count }}</b></li>
+  <li>Общая сумма: <b>{{ stats.total_revenue }}</b></li>
+</ul>
+
+<h3>По методам оплаты</h3>
+<table class="admin-table">
+  <tr><th>Метод</th><th>Количество</th><th>Сумма</th></tr>
+  {% for item in stats.by_method %}
+    <tr>
+      <td>{{ item.method }}</td>
+      <td>{{ item.count }}</td>
+      <td>{{ item.amount }}</td>
+    </tr>
+  {% endfor %}
+</table>
+
+<h3>По ботам</h3>
+<table class="admin-table">
+  <tr><th>Бот</th><th>Количество</th><th>Сумма</th></tr>
+  {% for item in stats.by_bot %}
+    <tr>
+      <td>{{ item.bot__username|default:"—" }}</td>
+      <td>{{ item.count }}</td>
+      <td>{{ item.amount }}</td>
+    </tr>
+  {% endfor %}
+</table>
+{% endblock %}

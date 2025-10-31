@@ -1,0 +1,21 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+{{ block.super }}
+
+{% if custom_links %}
+<div class="module">
+    <table>
+        <caption>📈 Отчёты и аналитика</caption>
+        <tbody>
+            {% for link in custom_links %}
+            <tr>
+                <th><a href="{{ link.url }}">{{ link.title }}</a></th>
+                <td>{{ link.description }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

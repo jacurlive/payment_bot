@@ -73,11 +73,10 @@ class FullPaymentReportView(APIView):
             date_from = timezone.make_aware(datetime(now.year, now.month, 1))
             date_to = now
 
-        payments = Payment.objects.filter(created_at__range=[date_from, date_to])
+        payments = Payment.objects.filter(created_at__range=[date_from, date_to], status="success")
         if bot_id:
             payments = payments.filter(id=bot_id)
 
-        # --- Статистика ---
         total_payments = payments.count()
         total_revenue = sum(p.amount for p in payments)
 
@@ -93,7 +92,6 @@ class FullPaymentReportView(APIView):
             by_bot[bot_name]["count"] += 1
             by_bot[bot_name]["amount"] += p.amount
 
-        # --- Формирование Excel ---
         wb = Workbook()
         ws = wb.active
         ws.title = "Payment Report"
@@ -129,7 +127,6 @@ class FullPaymentReportView(APIView):
                 p.created_at.strftime("%Y-%m-%d %H:%M:%S")
             ])
 
-        # Автоматическая ширина колонок
         for col in ws.columns:
             max_length = 0
             column = get_column_letter(col[0].column)
@@ -141,7 +138,6 @@ class FullPaymentReportView(APIView):
                     print(e)
             ws.column_dimensions[column].width = max_length + 2
 
-        # --- Ответ ---
         response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         filename = f"payments_report_{date_from.date()}_{date_to.date()}.xlsx"
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -152,36 +148,30 @@ class FullPaymentReportView(APIView):
 class PaymentSummaryReportView(APIView):
 
     def get(self, request):
-        # фильтр по дате (опционально, можно передавать ?from= и ?to=)
         date_from = request.query_params.get("from", "2025-10-01")
         date_to = request.query_params.get("to", "2025-10-30")
 
         payments = Payment.objects.filter(created_at__range=[date_from, date_to])
 
-        # агрегаты
         total_revenue = payments.aggregate(Sum("amount"))["amount__sum"] or 0
         total_payments = payments.count()
 
-        # по методам
         methods = payments.values("method").annotate(
             count=Count("id"),
             amount=Sum("amount")
         )
 
-        # по ботам
         bots = payments.values("bot__username").annotate(
             count=Count("id"),
             amount=Sum("amount")
         )
 
-        # создаём Excel
         wb = Workbook()
         ws = wb.active
         ws.title = "Payments Summary"
 
         bold = Font(bold=True)
 
-        # Раздел 1 — Общая статистика
         ws.append(["Total Revenue", total_revenue])
         ws.append(["Total Payments", total_payments])
         ws.append([])
@@ -189,7 +179,6 @@ class PaymentSummaryReportView(APIView):
         ws.append([])
         ws.append([])
 
-        # Раздел 2 — По методам
         ws.append(["By Method"])
         ws.append(["Method", "Count", "Amount"])
         for m in methods:
@@ -201,7 +190,6 @@ class PaymentSummaryReportView(APIView):
         ws.append([])
         ws.append([])
 
-        # Раздел 3 — По ботам
         ws.append(["By Bot"])
         ws.append(["Bot", "Count", "Amount"])
         for b in bots:
@@ -211,11 +199,9 @@ class PaymentSummaryReportView(APIView):
                 b["amount"],
             ])
 
-        # применим жирный стиль к заголовкам
         for cell in ws["A1":"B1"][0]:
             cell.font = bold
 
-        # сохраняем файл в память
         stream = io.BytesIO()
         wb.save(stream)
         stream.seek(0)
@@ -228,7 +214,6 @@ class PaymentSummaryReportView(APIView):
         return response
 
 
-# --------- CRUD ViewSets ---------
 
 class BotViewSet(viewsets.ModelViewSet):
     queryset = Bot.objects.all()
@@ -339,12 +324,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def report(self, request):
-
-        """
-        Возвращает агрегированные данные о платежах за выбранный период.
-        Пример запроса:
-        /api/payments/report/?from=2025-09-01&to=2025-09-30
-        """
 
         from_date = request.GET.get("from")
         to_date = request.GET.get("to")
