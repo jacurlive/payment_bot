@@ -5,6 +5,10 @@ class Bot(models.Model):
     title = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Бот"
+        verbose_name_plural = "Боты"
+
     def __str__(self):
         return self.username
 
@@ -22,6 +26,10 @@ class SubscriptionPlan(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "План подписки"
+        verbose_name_plural = "Планы подписок"
+
     def __str__(self):
         return self.name
 
@@ -33,6 +41,10 @@ class User(models.Model):
     last_name = models.CharField(max_length=200, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Пользователь"
+        verbose_name_plural = "Пользователи"
 
     def __str__(self):
         return str(self.telegram_id)
@@ -47,6 +59,10 @@ class Subscription(models.Model):
     is_active = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
 
     def __str__(self):
         return str(self.plan)
@@ -70,6 +86,10 @@ class Payment(models.Model):
     status = models.CharField(max_length=16, choices=(("pending", "Pending"),("success", "Success"),("failed", "Failed")))
     transaction_id = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Платёж"
+        verbose_name_plural = "Платежи"
 
 
 class PaymentMethod(models.Model):

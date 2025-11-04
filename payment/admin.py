@@ -12,8 +12,8 @@ old_index = admin.site.index
 
 
 admin.site.site_header = "Payment Bot"
-admin.site.site_title = "Admin"
-admin.site.index_title = "Site administration"
+admin.site.site_title = "Админ"
+admin.site.index_title = "Администрация сайта"
 
 
 def custom_index(request, extra_context=None):
