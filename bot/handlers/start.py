@@ -3,6 +3,7 @@ from aiogram.filters import Command, CommandObject
 from ..core.utils import get_all_bots, get_bot_by_username, get_plans_for_bot
 from ..keyboards.bots import bots_keyboard
 from ..keyboards.plans import plans_keyboard
+from ..keyboards.common import back_keyboard
 
 router = Router()
 
@@ -44,13 +45,13 @@ async def select_bot_callback(callback: types.CallbackQuery):
     bot_username = callback.data.split(":", 1)[1]
     backend_bot = await get_bot_by_username(bot_username)
     if not backend_bot:
-        await callback.message.edit_text("❌ Ошибка: бот не найден.")
+        await callback.message.edit_text("❌ Ошибка: бот не найден.", reply_markup=back_keyboard())
         await callback.answer()
         return
 
     plans = await get_plans_for_bot(backend_bot["id"])
     if not plans:
-        await callback.message.edit_text("❌ Для этого бота нет тарифов.")
+        await callback.message.edit_text("❌ Для этого бота нет тарифов.", reply_markup=back_keyboard())
         await callback.answer()
         return
 
@@ -60,5 +61,3 @@ async def select_bot_callback(callback: types.CallbackQuery):
         parse_mode="html"
     )
     await callback.answer()
-
-

@@ -14,7 +14,10 @@ class SubscriptionPlan(models.Model):
     name = models.CharField(max_length=64)
     duration_days = models.PositiveIntegerField(null=True, blank=True)
 
-    price = models.DecimalField(max_digits=12, decimal_places=2)
+    price_usdt = models.DecimalField(max_digits=12, decimal_places=2)
+    price_uzs = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    price_stars = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    price_rub = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -67,3 +70,13 @@ class Payment(models.Model):
     status = models.CharField(max_length=16, choices=(("pending", "Pending"),("success", "Success"),("failed", "Failed")))
     transaction_id = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PaymentMethod(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    callback_data = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Способ оплаты"
+        verbose_name_plural = "Способы оплаты"

@@ -2,10 +2,11 @@ from aiogram import types, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from ..core.utils import get_plans_for_bot, create_mock_payment
+from ..core.utils import get_plans_for_bot, create_mock_payment, get_payment_methods
 from ..config import ADMIN_CHANNEL_ID, bot
+from ..keyboards.buy import payment_methods_keyboard
 import logging
+
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -16,7 +17,8 @@ async def handle_buy(callback: types.CallbackQuery, state: FSMContext):
     try:
         _, bot_id_str, plan_id_str = callback.data.split(":")
         bot_id, plan_id = int(bot_id_str), int(plan_id_str)
-    except Exception:
+    except Exception as e:
+        logger.exception(f"Error: {e}")
         await callback.answer("Ошибка в данных кнопки", show_alert=True)
         return
 
@@ -28,20 +30,13 @@ async def handle_buy(callback: types.CallbackQuery, state: FSMContext):
 
     text = (
         f"Вы выбрали: <b>{plan['name']}</b>\n"
-        f"💰 Цена: <b>{plan['price']}</b>\n\n"
+        f"💰 Цена: <b>{plan['price_usdt']}$</b>\n\n"
         "Выберите способ оплаты:"
     )
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💫 Telegram Stars", callback_data=f"pay_stars:{bot_id}:{plan_id}")],
-        [InlineKeyboardButton(text="🪙 CryptoBot", callback_data=f"pay_crypto:{bot_id}:{plan_id}")],
-        [InlineKeyboardButton(text="Click", callback_data=f"pay_click:{bot_id}:{plan_id}")],
-        [InlineKeyboardButton(text="PayMe", callback_data=f"pay_payme:{bot_id}:{plan_id}")],
-        [InlineKeyboardButton(text="💳 Тестовая оплата", callback_data=f"do_payment:{bot_id}:{plan_id}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="cancel")]
-    ])
+    payment_methods = await get_payment_methods()
 
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode="html")
+    await callback.message.edit_text(text, reply_markup=payment_methods_keyboard(bot_id, plan_id, plan, payment_methods), parse_mode="html")
     await callback.answer()
 
 

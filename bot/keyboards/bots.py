@@ -7,5 +7,5 @@ def bots_keyboard(bots):
             text=b.get("display_name") or b["username"],
             callback_data=f"select_bot:{b['username']}"
         )
-    builder.adjust(1)
+    builder.adjust(2)
     return builder.as_markup()

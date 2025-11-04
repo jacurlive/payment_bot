@@ -1,6 +1,5 @@
 import io
 
-from aiohttp import request
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.decorators import action, api_view
@@ -14,13 +13,14 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from datetime import datetime
 
-from .models import Bot, SubscriptionPlan, User, Subscription, Payment
+from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
     UserSerializer,
     SubscriptionSerializer,
     PaymentSerializer,
+    PaymentMethodSerializer
 )
 
 
@@ -238,12 +238,17 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
         bot_id = self.request.query_params.get("bot_id")
         if bot_id:
             queryset = queryset.filter(bot_id=bot_id)
-        return queryset
+        return queryset.order_by("duration_days")
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+
+class PaymentMethodViewSet(viewsets.ModelViewSet):
+    queryset = PaymentMethod.objects.filter(is_active=True)
+    serializer_class = PaymentMethodSerializer
 
 
 class SubscriptionViewSet(viewsets.ModelViewSet):

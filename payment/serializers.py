@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Bot, SubscriptionPlan, User, Subscription, Payment
+from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod
 
 
 class BotSerializer(serializers.ModelSerializer):
@@ -37,4 +37,10 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
+        fields = "__all__"
+
+
+class PaymentMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentMethod
         fields = "__all__"

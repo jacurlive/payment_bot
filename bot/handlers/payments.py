@@ -5,6 +5,7 @@ from aiocryptopay import AioCryptoPay, Networks
 
 from ..config import bot, ADMIN_CHANNEL_ID
 from ..core.utils import create_mock_payment, get_plans_for_bot
+from ..keyboards.common import back_keyboard
 
 import logging
 import os
@@ -13,7 +14,7 @@ import os
 router = Router()
 logger = logging.getLogger(__name__)
 
-STARS_RATE = float(os.getenv("STARS_RATE", 235.998))
+STARS_RATE = float(os.getenv("STARS_RATE", 0.017))
 
 
 CRYPTO_PAY_TOKEN = os.getenv("CRYPTO_PAY_TOKEN")
@@ -38,8 +39,7 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
         await callback.answer("Тариф не найден", show_alert=True)
         return
 
-    price_uzs = float(plan["price"])
-    price_usdt = round(price_uzs / 13000, 2)
+    price_usdt = float(plan["price_usdt"])
 
     try:
         crypto = AioCryptoPay(token=CRYPTO_PAY_TOKEN, network=Networks.MAIN_NET)
@@ -64,7 +64,7 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
         await callback.message.edit_text(
             f"💸 Оплата через <b>CryptoBot</b>\n\n"
             f"Тариф: <b>{plan['name']}</b>\n"
-            f"Сумма: <b>{price_uzs} UZS</b> (~{price_usdt} USDT)\n\n"
+            f"Сумма: <b>{price_usdt} USDT</b>\n\n"
             "После оплаты бот активирует подписку автоматически ✅",
             parse_mode="HTML",
             reply_markup=kb,
@@ -74,7 +74,7 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
 
     except Exception as e:
         logger.exception(f"Ошибка при создании платежа через CryptoBot: {e}")
-        await callback.message.answer("❌ Ошибка при создании платежа через CryptoBot.")
+        await callback.message.answer("❌ Ошибка при создании платежа через CryptoBot.", reply_markup=back_keyboard())
         await callback.answer()
 
 
@@ -114,7 +114,7 @@ async def check_crypto_payment(callback: types.CallbackQuery):
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)
     else:
-        await callback.message.answer("⚠️ Оплата прошла, но не удалось активировать подписку.")
+        await callback.message.answer("⚠️ Оплата прошла, но не удалось активировать подписку.", reply_markup=back_keyboard())
 
 
 # ---------- Telegram Stars ---------
@@ -137,10 +137,8 @@ async def handle_telegram_stars_payment(callback: types.CallbackQuery):
         await callback.answer("Тариф не найден", show_alert=True)
         return
 
-    price_uzs = float(plan["price"])
-    price_stars = round(price_uzs / STARS_RATE)
-    logger.info(f"Converted {price_uzs} UZS → {price_stars} Stars (rate {STARS_RATE})")
-
+    price_stars = plan["price_stars"]
+    # logger.info(f"Converted {price_usd} USD → {price_stars} Stars (rate {STARS_RATE})")
 
     price = [LabeledPrice(label=plan["name"], amount=price_stars)]
     title = plan["name"]
@@ -153,12 +151,12 @@ async def handle_telegram_stars_payment(callback: types.CallbackQuery):
             description=description,
             payload=f"{bot_id}:{plan_id}",
             provider_token="",
-            currency="XTR",  # 💫 Telegram Stars
+            currency="XTR",
             prices=price,
         )
         await callback.answer()
     except TelegramBadRequest as e:
-        await callback.message.answer("❌ Не удалось создать счёт через Telegram Stars.")
+        await callback.message.answer("❌ Не удалось создать счёт через Telegram Stars.", reply_markup=back_keyboard())
         print("Telegram invoice error:", e)
         await callback.answer()
 
@@ -198,4 +196,4 @@ async def successful_payment_handler(message: types.Message):
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)
     else:
-        await message.answer("⚠️ Оплата прошла, но не удалось активировать подписку.")
+        await message.answer("⚠️ Оплата прошла, но не удалось активировать подписку.", reply_markup=back_keyboard())

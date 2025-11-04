@@ -9,7 +9,6 @@ from .handlers import start, payments, common, buy
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher(storage=MemoryStorage())
 
-# Регистрация хендлеров
 dp.include_router(start.router)
 dp.include_router(buy.router)
 dp.include_router(payments.router)
