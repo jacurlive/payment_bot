@@ -34,11 +34,18 @@ class SubscriptionPlan(models.Model):
         return self.name
 
 
+class Language(models.TextChoices):
+    RU = "ru", "Русский"
+    EN = "en", "English"
+    UZ = "uz", "O'zbekcha"
+
+
 class User(models.Model):
     telegram_id = models.BigIntegerField(unique=True, db_index=True)
     username = models.CharField(max_length=64, blank=True, null=True)
     first_name = models.CharField(max_length=200, blank=True, null=True)
     last_name = models.CharField(max_length=200, blank=True, null=True)
+    language = models.CharField(max_length=2, choices=Language.choices, default=Language.RU)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -48,6 +55,7 @@ class User(models.Model):
 
     def __str__(self):
         return str(self.telegram_id)
+
 
 class Subscription(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="subscription")

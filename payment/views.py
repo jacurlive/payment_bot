@@ -1,8 +1,9 @@
 import io
 
 from rest_framework import viewsets
+from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
 from django.http import FileResponse, HttpResponse
@@ -244,6 +245,7 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    lookup_field = "telegram_id"
 
 
 class PaymentMethodViewSet(viewsets.ModelViewSet):
@@ -377,6 +379,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 # --------- API for Bots ---------
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def is_subscribed(request):
     user_id = request.GET.get("user_id")
     bot_username = request.GET.get("botusername")

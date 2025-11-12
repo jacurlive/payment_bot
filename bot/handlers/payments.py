@@ -53,7 +53,6 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
         await crypto.close()
         pay_url = invoice.bot_invoice_url  # ✅ актуальное поле
 
-        # Клавиатура с кнопкой оплаты
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [types.InlineKeyboardButton(text="💳 Оплатить через CryptoBot", url=pay_url)],
@@ -76,7 +75,6 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
         logger.exception(f"Ошибка при создании платежа через CryptoBot: {e}")
         await callback.message.answer("❌ Ошибка при создании платежа через CryptoBot.", reply_markup=back_keyboard())
         await callback.answer()
-
 
 
 @router.callback_query(F.data.startswith("check_crypto:"))
