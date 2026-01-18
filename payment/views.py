@@ -321,7 +321,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         payment = Payment.objects.create(
             user=user, bot=bot, subscription=sub, method=method,
-            amount=plan.price, status="success"
+            amount=plan.price_usdt, status="success"
         )
 
         return Response({

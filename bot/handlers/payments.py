@@ -175,7 +175,7 @@ async def successful_payment_handler(message: types.Message):
         bot_id=bot_id,
         plan_id=plan_id
     )
-
+    print(resp)
     if resp.get("status") == "success":
         await message.answer("✅ Оплата через Telegram Stars прошла успешно!")
         try:
