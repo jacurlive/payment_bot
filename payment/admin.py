@@ -3,9 +3,13 @@ from django.urls import path, reverse
 from django.db.models import Count, Sum
 from django.utils import timezone
 from django.template.response import TemplateResponse
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 
-from .models import User, Bot, SubscriptionPlan, Subscription, Payment, PaymentMethod
+from .utils import send_test_message_sync, format_message
+from .models import User, Bot, SubscriptionPlan, Subscription, Payment, PaymentMethod, Messages
 
 
 old_index = admin.site.index
@@ -48,6 +52,11 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
     list_display = ("bot", "name", "duration_days", "price_usdt", "is_active", "created_at")
     list_display_links = ("bot", "name", "duration_days", "price_usdt")
 
+    class Meta:
+        css = {
+            'all': ('admin/no-bold.css',)
+        }
+
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
@@ -65,6 +74,95 @@ class PaymentAdmin(admin.ModelAdmin):
 class PaymentMethodAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "is_active")
     list_display_links = ("id", "name", "is_active")
+
+
+@admin.register(Messages)
+class MessagesAdmin(admin.ModelAdmin):
+    list_display = ("id", "identifier", "message_ru", "message_en", "message_uz")
+    list_display_links = ("id", "identifier", "message_ru", "message_en", "message_uz")
+
+    change_form_template = 'admin/change_form.html'
+
+    def get_urls(self):
+        """
+        Добавляем кастомный URL для тестовой отправки сообщений
+        """
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'test-message/',
+                self.admin_site.admin_view(self.test_message_view),
+                name='payment_messages_test_message'
+            ),
+        ]
+        return custom_urls + urls
+
+    def test_message_view(self, request):
+        """
+        View для обработки AJAX запросов тестовой отправки сообщений
+        """
+        if request.method != 'POST':
+            return JsonResponse({
+                'success': False,
+                'message': '❌ Метод не поддерживается'
+            }, status=405)
+
+        try:
+            message_id = request.POST.get('message_id')
+            language = request.POST.get('language')
+            user_id = request.POST.get('user_id')
+
+            if not all([message_id, language, user_id]):
+                return JsonResponse({
+                    'success': False,
+                    'message': '❌ Отсутствуют обязательные параметры'
+                }, status=400)
+
+            try:
+                user_id = int(user_id)
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'message': '❌ User ID должен быть числом'
+                }, status=400)
+
+            try:
+                message_obj = Messages.objects.get(id=message_id)
+            except Messages.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': '❌ Сообщение не найдено'
+                }, status=404)
+
+            language_field = f'message_{language}'
+            message_template = getattr(message_obj, language_field, None)
+
+            if not message_template:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'❌ Текст для языка {language} не заполнен'
+                }, status=400)
+
+            formatted_message = format_message(message_template)
+
+            # ДОБАВЛЯЕМ ОТЛАДКУ
+            print(f"[DEBUG] Отправка сообщения пользователю {user_id}")
+            print(f"[DEBUG] Текст: {formatted_message[:50]}...")
+
+            result = send_test_message_sync(user_id, formatted_message)
+
+            print(f"[DEBUG] Результат: {result}")
+
+            return JsonResponse(result)
+
+        except Exception as e:
+            import traceback
+            print("[DEBUG] ОШИБКА:")
+            traceback.print_exc()
+            return JsonResponse({
+                'success': False,
+                'message': f'❌ Неожиданная ошибка: {str(e)}'
+            }, status=500)
 
 
 MONTHS_MAP = {

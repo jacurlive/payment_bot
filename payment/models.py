@@ -108,3 +108,14 @@ class PaymentMethod(models.Model):
     class Meta:
         verbose_name = "Способ оплаты"
         verbose_name_plural = "Способы оплаты"
+
+
+class Messages(models.Model):
+    identifier = models.CharField(max_length=255, unique=True)
+    message_ru = models.TextField(null=True, blank=True)
+    message_en = models.TextField(null=True, blank=True)
+    message_uz = models.TextField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Сообщение"
+        verbose_name_plural = "Сообщения"

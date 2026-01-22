@@ -1,0 +1,4 @@
+.form-row label,
+.aligned label {
+    font-weight: normal !important;
+}
