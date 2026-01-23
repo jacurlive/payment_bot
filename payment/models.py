@@ -3,6 +3,9 @@ from django.db import models
 class Bot(models.Model):
     username = models.CharField(max_length=100, unique=True)
     title = models.CharField(max_length=150, blank=True)
+    notification_group_id = models.BigIntegerField(null=True, blank=True)
+    bot_token = models.CharField(max_length=255, null=True, blank=True)
+    request_url = models.CharField(max_length=300, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -42,9 +45,6 @@ class Language(models.TextChoices):
 
 class User(models.Model):
     telegram_id = models.BigIntegerField(unique=True, db_index=True)
-    username = models.CharField(max_length=64, blank=True, null=True)
-    first_name = models.CharField(max_length=200, blank=True, null=True)
-    last_name = models.CharField(max_length=200, blank=True, null=True)
     language = models.CharField(max_length=2, choices=Language.choices, default=Language.RU)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

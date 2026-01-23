@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 from typing import Dict
+from asgiref.sync import async_to_sync
 import os
 
 
@@ -129,3 +130,41 @@ def format_message(template: str, end_date=None) -> str:
 
     formatted_date = end_date.strftime("%d.%m.%Y")
     return template.replace("{end_date}", formatted_date)
+
+
+async def _send_notification_to_group_async(group_id: int, message_text: str) -> Dict[str, any]:
+    """
+    Асинхронная функция для отправки уведомления в группу
+    """
+    from aiogram import Bot
+
+    token = get_bot_token()
+    if not token:
+        return {
+            "success": False,
+            "message": "❌ Токен бота не найден"
+        }
+
+    bot = Bot(token=token)
+
+    try:
+        await bot.send_message(chat_id=group_id, text=message_text, parse_mode="HTML")
+        return {
+            "success": True,
+            "message": f"✅ Уведомление отправлено в группу {group_id}"
+        }
+    except Exception as e:
+        error_message = str(e)
+        return {
+            "success": False,
+            "message": f"❌ Ошибка отправки в группу: {error_message}"
+        }
+    finally:
+        await bot.session.close()
+
+
+def send_notification_to_group_sync(group_id: int, message_text: str) -> Dict[str, any]:
+    return async_to_sync(_send_notification_to_group_async)(
+        group_id,
+        message_text
+    )

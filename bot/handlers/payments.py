@@ -4,7 +4,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiocryptopay import AioCryptoPay, Networks
 
 from ..config import bot, ADMIN_CHANNEL_ID
-from ..core.utils import create_mock_payment, get_plans_for_bot
+from ..core.utils import create_mock_payment, get_plans_for_bot, send_payment_notification
 from ..keyboards.common import back_keyboard
 
 import logging
@@ -101,13 +101,17 @@ async def check_crypto_payment(callback: types.CallbackQuery):
 
     if resp.get("status") == "success":
         try:
-            if ADMIN_CHANNEL_ID:
-                await callback.bot.send_message(
-                    ADMIN_CHANNEL_ID,
-                    f"💰 <b>CryptoBot оплата</b>\n"
-                    f"👤 @{callback.from_user.username or '—'} ({callback.from_user.id})\n"
-                    f"План ID: {plan_id}\n"
-                    f"Бот ID: {bot_id}"
+            plans = await get_plans_for_bot(bot_id)
+            plan = next((p for p in plans if p["id"] == plan_id), None)
+
+            if plan:
+                await send_payment_notification(
+                    telegram_id=callback.from_user.id,
+                    bot_id=bot_id,
+                    plan_id=plan_id,
+                    payment_method="crypto",
+                    amount=plan["price_usdt"],
+                    transaction_id=str(invoice_id)
                 )
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)
@@ -179,17 +183,17 @@ async def successful_payment_handler(message: types.Message):
     if resp.get("status") == "success":
         await message.answer("✅ Оплата через Telegram Stars прошла успешно!")
         try:
-            if ADMIN_CHANNEL_ID:
-                await bot.send_message(
-                    ADMIN_CHANNEL_ID,
-                    (
-                        f"🛒 <b>Новая покупка</b>\n"
-                        f"👤 Пользователь: <code>{user_id}</code> (@{message.from_user.username or '—'})\n"
-                        f"Метод: <b>stub</b>\n"
-                        f"План ID: <b>{plan_id}</b>\n"
-                        f"Бот ID: <b>{bot_id}</b>"
-                    ),
-                    parse_mode="html"
+            plans = await get_plans_for_bot(bot_id)
+            plan = next((p for p in plans if p["id"] == plan_id), None)
+
+            if plan:
+                await send_payment_notification(
+                    telegram_id=user_id,
+                    bot_id=bot_id,
+                    plan_id=plan_id,
+                    payment_method="stars",
+                    amount=plan["price_stars"],
+                    transaction_id=message.successful_payment.telegram_payment_charge_id
                 )
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)

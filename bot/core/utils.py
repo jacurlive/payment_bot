@@ -1,4 +1,5 @@
 from .client import request
+from .notifications import send_purchase_notification
 
 async def get_all_bots():
     resp = await request("GET", "/api/bots/")
@@ -34,3 +35,52 @@ async def change_language(telegram_id, language):
 async def get_user_data(telegram_id):
     resp = await request("GET", f"/api/users/{telegram_id}")
     return resp.json() if resp.status_code == 200 else []
+
+
+async def send_payment_notification(telegram_id, bot_id, plan_id, payment_method, amount, transaction_id=None):
+    """
+    Отправка уведомления о покупке в группу бота
+
+    Args:
+        telegram_id: Telegram ID пользователя
+        bot_id: ID бота
+        plan_id: ID плана подписки
+        payment_method: метод оплаты (str)
+        amount: сумма платежа
+        transaction_id: ID транзакции (опционально)
+    """
+    try:
+        # Получаем данные из API
+        user_resp = await request("GET", f"/api/users/{telegram_id}/")
+        bot_resp = await request("GET", f"/api/bots/{bot_id}/")
+        plan_resp = await request("GET", f"/api/plans/{plan_id}/")
+
+        if user_resp.status_code != 200 or bot_resp.status_code != 200 or plan_resp.status_code != 200:
+            return
+
+        user_data = user_resp.json()
+        bot_data = bot_resp.json()
+        plan_data = plan_resp.json()
+
+        class FakeObject:
+            def __init__(self, data):
+                for key, value in data.items():
+                    setattr(self, key, value)
+
+        user_obj = FakeObject(user_data)
+        bot_obj = FakeObject(bot_data)
+        plan_obj = FakeObject(plan_data)
+
+        await send_purchase_notification(
+            user=user_obj,
+            bot_obj=bot_obj,
+            plan=plan_obj,
+            payment_method=payment_method,
+            amount=amount,
+            transaction_id=transaction_id
+        )
+
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception(f"Ошибка при отправке уведомления о покупке: {e}")

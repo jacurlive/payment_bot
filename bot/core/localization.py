@@ -5,13 +5,13 @@ class Localization:
 
         },
         'ru': {
-
+            'choice_bot': 'Вы выбрали бота'
         },
         'en': {
-
+            'choice_bot': 'Вы выбрали бота'
         },
         'uz': {
-
+            'choice_bot': 'Вы выбрали бота'
         }
     }
 

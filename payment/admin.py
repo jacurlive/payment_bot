@@ -37,8 +37,8 @@ admin.site.index = custom_index
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ("telegram_id", "username", "first_name", "last_name", "created_at")
-    list_display_links = ("telegram_id", "username", "first_name", "last_name", "created_at")
+    list_display = ("telegram_id", "created_at")
+    list_display_links = ("telegram_id", "created_at")
 
 
 @admin.register(Bot)
