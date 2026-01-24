@@ -2,7 +2,8 @@ from aiogram import types, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from ..core.utils import get_plans_for_bot, create_mock_payment, get_payment_methods
+from ..core.utils import get_plans_for_bot, create_mock_payment, get_payment_methods, get_user_language
+from ..core.localization import get_localized_message
 from ..config import ADMIN_CHANNEL_ID, bot
 from ..keyboards.buy import payment_methods_keyboard
 import logging
@@ -14,24 +15,31 @@ logger = logging.getLogger(__name__)
 
 @router.callback_query(F.data.startswith("buy:"))
 async def handle_buy(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    language = await get_user_language(user_id)
     try:
         _, bot_id_str, plan_id_str = callback.data.split(":")
         bot_id, plan_id = int(bot_id_str), int(plan_id_str)
     except Exception as e:
         logger.exception(f"Error: {e}")
-        await callback.answer("Ошибка в данных кнопки", show_alert=True)
+        localized_message = await get_localized_message(language, 'button_data_error')
+        await callback.answer(localized_message, show_alert=True)
         return
 
     plans = await get_plans_for_bot(bot_id)
     plan = next((p for p in plans if p["id"] == plan_id), None)
     if not plan:
-        await callback.answer("Тариф не найден", show_alert=True)
+        localized_message = await get_localized_message(language, 'not_plan')
+        await callback.answer(localized_message, show_alert=True)
         return
 
+    localized_message_1 = await get_localized_message(language, 'you_choice')
+    localized_message_2 = await get_localized_message(language, 'price_1')
+    localized_message_3 = await get_localized_message(language, 'choice_payment_type')
     text = (
-        f"Вы выбрали: <b>{plan['name']}</b>\n"
-        f"💰 Цена: <b>{plan['price_usdt']}$</b>\n\n"
-        "Выберите способ оплаты:"
+        f"{localized_message_1}: <b>{plan['name']}</b>\n"
+        f"{localized_message_2}: <b>{plan['price_usdt']}$</b>\n\n"
+        f"{localized_message_3}:"
     )
 
     payment_methods = await get_payment_methods()

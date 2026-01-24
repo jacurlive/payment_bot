@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
-from payment.models import Subscription, Messages, User
+from payment.models import Subscription, Messages
 from payment.utils import send_test_message_sync, format_message
 
 
@@ -79,7 +79,7 @@ class Command(BaseCommand):
             plan_name = subscription.plan.name if subscription.plan else "Неизвестный план"
             end_date_str = subscription.end_date.strftime("%d.%m.%Y %H:%M")
 
-            self.stdout.write(f'\n👤 Пользователь: {user.telegram_id} (@{user.username or "без username"})')
+            self.stdout.write(f'\n👤 Пользователь: {user.telegram_id} (@{"без username"})')
             self.stdout.write(f'   📦 План: {plan_name}')
             self.stdout.write(f'   ⏰ Истекает: {end_date_str} (через {days_left} дней)')
             self.stdout.write(f'   🌐 Язык: {language.upper()}')

@@ -5,6 +5,14 @@ async def get_all_bots():
     resp = await request("GET", "/api/bots/")
     return resp.json() if resp.status_code == 200 else []
 
+async def get_user_language(telegram_id):
+    resp = await request("GET", f"/api/users/{telegram_id}/")
+    if resp.status_code == 200:
+        data = resp.json()
+        language = data["language"]
+        return language
+    return None
+
 async def get_bot_by_username(username):
     resp = await request("GET", "/api/bots/", params={"username": username})
     return resp.json()[0] if resp.status_code == 200 and resp.json() else []
@@ -22,8 +30,8 @@ async def create_mock_payment(telegram_id, bot_id, plan_id):
     resp = await request("POST", "/api/payments/mock/", json=payload)
     return resp.json() if resp.status_code in (200, 201) else []
 
-async def create_user(user):
-    payload = {"telegram_id": user.id, "username": user.username, "first_name": user.first_name, "last_name": user.last_name, "language": "ru", "is_active": True}
+async def create_user(user_id, language):
+    payload = {"telegram_id": user_id, "language": language, "is_active": True}
     resp = await request("POST", "/api/users/", json=payload)
     return resp.json() if resp.status_code in (200, 201) else []
 
@@ -34,7 +42,7 @@ async def change_language(telegram_id, language):
 
 async def get_user_data(telegram_id):
     resp = await request("GET", f"/api/users/{telegram_id}")
-    return resp.json() if resp.status_code == 200 else []
+    return resp.json() if resp.status_code == 200 else None
 
 
 async def send_payment_notification(telegram_id, bot_id, plan_id, payment_method, amount, transaction_id=None):

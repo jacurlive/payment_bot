@@ -3,8 +3,9 @@ from aiogram.types import LabeledPrice, PreCheckoutQuery
 from aiogram.exceptions import TelegramBadRequest
 from aiocryptopay import AioCryptoPay, Networks
 
-from ..config import bot, ADMIN_CHANNEL_ID
-from ..core.utils import create_mock_payment, get_plans_for_bot, send_payment_notification
+from ..config import bot
+from ..core.utils import create_mock_payment, get_plans_for_bot, send_payment_notification, get_user_language
+from ..core.localization import get_localized_message
 from ..keyboards.common import back_keyboard
 
 import logging
@@ -25,18 +26,22 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
     """
     Обработка кнопки оплаты через CryptoBot
     """
+    user_id = callback.message.from_user.id
+    language = await get_user_language(user_id)
     try:
         _, bot_id_str, plan_id_str = callback.data.split(":")
         bot_id, plan_id = int(bot_id_str), int(plan_id_str)
     except Exception as e:
-        await callback.answer("Ошибка данных кнопки", show_alert=True)
+        localized_message = await get_localized_message(language, "button_data_error")
+        await callback.answer(localized_message, show_alert=True)
         logger.exception(f"Error parsing callback data: {e}")
         return
 
     plans = await get_plans_for_bot(bot_id)
     plan = next((p for p in plans if p["id"] == plan_id), None)
     if not plan:
-        await callback.answer("Тариф не найден", show_alert=True)
+        localized_message = await get_localized_message(language, "not_plan")
+        await callback.answer(localized_message, show_alert=True)
         return
 
     price_usdt = float(plan["price_usdt"])
@@ -50,21 +55,27 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
             description=f"Подписка {plan['name']} ({plan['duration_days']} дней)"
         )
 
+        localized_message_1 = await get_localized_message(language, "pay_crypto_bot")
+        localized_message_2 = await get_localized_message(language, "back_btn")
         await crypto.close()
-        pay_url = invoice.bot_invoice_url  # ✅ актуальное поле
+        pay_url = invoice.bot_invoice_url
 
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
-                [types.InlineKeyboardButton(text="💳 Оплатить через CryptoBot", url=pay_url)],
-                [types.InlineKeyboardButton(text="🔙 Назад", callback_data="cancel")]
+                [types.InlineKeyboardButton(text=localized_message_1, url=pay_url)],
+                [types.InlineKeyboardButton(text=localized_message_2, callback_data="cancel")]
             ]
         )
 
+        localized_message_1 = await get_localized_message(language, "payment_from")
+        localized_message_2 = await get_localized_message(language, 'plan')
+        localized_message_3 = await get_localized_message(language, 'price')
+        localized_message_4 = await get_localized_message(language, 'after_buy_text')
         await callback.message.edit_text(
-            f"💸 Оплата через <b>CryptoBot</b>\n\n"
-            f"Тариф: <b>{plan['name']}</b>\n"
-            f"Сумма: <b>{price_usdt} USDT</b>\n\n"
-            "После оплаты бот активирует подписку автоматически ✅",
+            f"💸 {localized_message_1} <b>CryptoBot</b>\n\n"
+            f"{localized_message_2}: <b>{plan['name']}</b>\n"
+            f"{localized_message_3}: <b>{price_usdt} USDT</b>\n\n"
+            f"{localized_message_4}",
             parse_mode="HTML",
             reply_markup=kb,
             disable_web_page_preview=True
@@ -72,8 +83,9 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
         await callback.answer()
 
     except Exception as e:
+        localized_message = await get_localized_message(language, 'crypto_invoice_error')
         logger.exception(f"Ошибка при создании платежа через CryptoBot: {e}")
-        await callback.message.answer("❌ Ошибка при создании платежа через CryptoBot.", reply_markup=back_keyboard())
+        await callback.message.answer(localized_message, reply_markup=back_keyboard())
         await callback.answer()
 
 
@@ -83,16 +95,20 @@ async def check_crypto_payment(callback: types.CallbackQuery):
     invoice_id = int(invoice_id_str)
     bot_id = int(bot_id_str)
     plan_id = int(plan_id_str)
+    user_id = callback.message.from_user.id
+    language = await get_user_language(user_id)
 
     crypto = AioCryptoPay(CRYPTO_PAY_TOKEN)
     invoice = await crypto.get_invoices(invoice_ids=[invoice_id])
     await crypto.close()
 
     if not invoice or invoice.status != "paid":
-        await callback.answer("❗ Оплата ещё не получена", show_alert=True)
+        localized_message = await get_localized_message(language, "not_paid")
+        await callback.answer(localized_message, show_alert=True)
         return
 
-    await callback.message.edit_text("✅ Оплата получена! Подписка активирована.")
+    localized_message = await get_localized_message(language, "paid")
+    await callback.message.edit_text(localized_message)
     resp = await create_mock_payment(
         telegram_id=callback.message.from_user.id,
         bot_id=bot_id,
@@ -116,7 +132,8 @@ async def check_crypto_payment(callback: types.CallbackQuery):
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)
     else:
-        await callback.message.answer("⚠️ Оплата прошла, но не удалось активировать подписку.", reply_markup=back_keyboard())
+        localized_message = await get_localized_message(language, 'paid_but_not_activated')
+        await callback.message.answer(localized_message, reply_markup=back_keyboard())
 
 
 # ---------- Telegram Stars ---------
@@ -125,18 +142,23 @@ async def handle_telegram_stars_payment(callback: types.CallbackQuery):
     """
     Обработка кнопки оплаты через Telegram Stars
     """
+    user_id = callback.from_user.id
+    language = await get_user_language(user_id)
+
     try:
         _, bot_id_str, plan_id_str = callback.data.split(":")
         bot_id, plan_id = int(bot_id_str), int(plan_id_str)
     except Exception as e:
-        await callback.answer("Ошибка данных кнопки", show_alert=True)
+        localized_message = await get_localized_message(language, 'button_data_error')
+        await callback.answer(localized_message, show_alert=True)
         logger.exception(f"Error: {e}")
         return
 
     plans = await get_plans_for_bot(bot_id)
     plan = next((p for p in plans if p["id"] == plan_id), None)
     if not plan:
-        await callback.answer("Тариф не найден", show_alert=True)
+        localized_message = await get_localized_message(language, 'not_plan')
+        await callback.answer(localized_message, show_alert=True)
         return
 
     price_stars = plan["price_stars"]
@@ -158,7 +180,8 @@ async def handle_telegram_stars_payment(callback: types.CallbackQuery):
         )
         await callback.answer()
     except TelegramBadRequest as e:
-        await callback.message.answer("❌ Не удалось создать счёт через Telegram Stars.", reply_markup=back_keyboard())
+        localized_message = await get_localized_message(language, 'stars_invoice_error')
+        await callback.message.answer(localized_message, reply_markup=back_keyboard())
         print("Telegram invoice error:", e)
         await callback.answer()
 
@@ -173,6 +196,7 @@ async def successful_payment_handler(message: types.Message):
     payload = message.successful_payment.invoice_payload
     bot_id, plan_id = map(int, payload.split(":"))
     user_id = message.from_user.id
+    language = await get_user_language(user_id)
 
     resp = await create_mock_payment(
         telegram_id=message.from_user.id,
@@ -181,7 +205,8 @@ async def successful_payment_handler(message: types.Message):
     )
     print(resp)
     if resp.get("status") == "success":
-        await message.answer("✅ Оплата через Telegram Stars прошла успешно!")
+        localized_message = await get_localized_message(language, 'stars_payment_success')
+        await message.answer(localized_message)
         try:
             plans = await get_plans_for_bot(bot_id)
             plan = next((p for p in plans if p["id"] == plan_id), None)
@@ -198,4 +223,5 @@ async def successful_payment_handler(message: types.Message):
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)
     else:
-        await message.answer("⚠️ Оплата прошла, но не удалось активировать подписку.", reply_markup=back_keyboard())
+        localized_message = await get_localized_message(language, 'paid_but_not_activated')
+        await message.answer(localized_message, reply_markup=back_keyboard())
