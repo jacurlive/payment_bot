@@ -35,6 +35,11 @@ async def create_user(user_id, language):
     resp = await request("POST", "/api/users/", json=payload)
     return resp.json() if resp.status_code in (200, 201) else []
 
+async def update_user_language(telegram_id, language):
+    payload = {"telegram_id": telegram_id, "language": language}
+    resp = await request("PUT", f"/api/users/{telegram_id}/", json=payload)
+    return resp.json() if resp.status_code in (200, 201) else None
+
 async def change_language(telegram_id, language):
     payload = {"language": language}
     resp = await request("PATCH", f"/api/users/{telegram_id}", json=payload)

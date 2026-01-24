@@ -2,7 +2,7 @@ from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
 
 from ..core.localization import get_localized_message
-from ..core.utils import get_all_bots, get_bot_by_username, get_plans_for_bot, get_user_language, create_user
+from ..core.utils import get_all_bots, get_bot_by_username, get_plans_for_bot, get_user_language, create_user, update_user_language
 from ..keyboards.bots import bots_keyboard
 from ..keyboards.language import language_selection_keyboard
 from ..keyboards.plans import plans_keyboard
@@ -72,7 +72,9 @@ async def start_handler(message: types.Message, command: CommandObject):
 async def select_language(callback: types.CallbackQuery):
     language = callback.data.split(":")[1]
     user_id = callback.from_user.id
-
+    data = await get_user_language(user_id)
+    if data:
+        await update_user_language(user_id, language)
     await create_user(user_id, language)
 
     await callback.message.edit_text(
@@ -80,6 +82,16 @@ async def select_language(callback: types.CallbackQuery):
         reply_markup=bots_keyboard(await get_all_bots())
     )
     await callback.answer()
+
+
+@router.message(Command("language"))
+async def language_handler(message: types.Message):
+    user_id = message.from_user.id
+
+    await message.answer(
+        "🌍 Выберите язык / Choose language / Tilni tanlang:",
+        reply_markup=language_selection_keyboard()
+    )
 
 
 @router.callback_query(F.data.startswith("select_bot:"))
