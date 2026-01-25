@@ -66,6 +66,10 @@ class Subscription(models.Model):
     end_date = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=False)
 
+    expiring_3days_sent = models.BooleanField(default=False, verbose_name="Отправлено уведомление за 3 дня")
+    expiring_2days_sent = models.BooleanField(default=False, verbose_name="Отправлено уведомление за 2 дня")
+    expiring_1day_sent = models.BooleanField(default=False, verbose_name="Отправлено уведомление за 1 день")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

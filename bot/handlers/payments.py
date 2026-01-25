@@ -26,7 +26,7 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
     """
     Обработка кнопки оплаты через CryptoBot
     """
-    user_id = callback.message.from_user.id
+    user_id = callback.from_user.id
     language = await get_user_language(user_id)
     try:
         _, bot_id_str, plan_id_str = callback.data.split(":")

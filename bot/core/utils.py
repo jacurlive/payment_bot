@@ -1,3 +1,5 @@
+import aiohttp
+
 from .client import request
 from .notifications import send_purchase_notification
 
@@ -97,3 +99,48 @@ async def send_payment_notification(telegram_id, bot_id, plan_id, payment_method
         import logging
         logger = logging.getLogger(__name__)
         logger.exception(f"Ошибка при отправке уведомления о покупке: {e}")
+
+async def send_telegram_message_http_async(bot_token, chat_id, text):
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+            async with session.post(url, json=payload) as response:
+                data = await response.json()
+
+        if data.get("ok"):
+            return {
+                "success": True,
+                "message": f"✅ Сообщение отправлено пользователю {chat_id}"
+            }
+
+        error_description = data.get("description", "").lower()
+
+        if "chat not found" in error_description:
+            return {
+                "success": False,
+                "message": f"❌ Пользователь {chat_id} не найден"
+            }
+        elif "bot was blocked" in error_description:
+            return {
+                "success": False,
+                "message": f"❌ Пользователь {chat_id} заблокировал бота"
+            }
+
+        return {
+            "success": False,
+            "message": f"❌ Ошибка API: {data.get('description')}"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"❌ Ошибка: {str(e)}"
+        }

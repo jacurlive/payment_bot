@@ -1,29 +1,79 @@
 import asyncio
+import requests
+import logging
 from datetime import datetime, timedelta
 from typing import Dict
 from asgiref.sync import async_to_sync
 import os
 
+logger = logging.getLogger(__name__)
+
+
+def send_telegram_message_http(bot_token, chat_id, text):
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        data = response.json()
+
+        if data.get("ok"):
+            return {
+                "success": True,
+                "message": f"✅ Сообщение отправлено пользователю {chat_id}"
+            }
+        else:
+            error_description = data.get("description", "Unknown error")
+
+            if "chat not found" in error_description.lower():
+                return {
+                    "success": False,
+                    "message": f"❌ Пользователь {chat_id} не найден (не запускал бота)"
+                }
+            elif "bot was blocked" in error_description.lower():
+                return {
+                    "success": False,
+                    "message": f"❌ Пользователь {chat_id} заблокировал бота"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"❌ Ошибка API: {error_description}"
+                }
+
+    except requests.exceptions.Timeout:
+        return {
+            "success": False,
+            "message": "❌ Превышено время ожидания ответа от Telegram"
+        }
+    except requests.exceptions.RequestException as e:
+        return {
+            "success": False,
+            "message": f"❌ Ошибка сети: {str(e)}"
+        }
+    except Exception as e:
+        logger.exception(f"Неожиданная ошибка при отправке сообщения: {e}")
+        return {
+            "success": False,
+            "message": f"❌ Неожиданная ошибка: {str(e)}"
+        }
 
 def get_bot_token():
-    """
-    Получение токена бота
-    """
     try:
         from bot.config import BOT_TOKEN
         return BOT_TOKEN
     except ImportError:
-        # Альтернативный способ - напрямую из .env
         from dotenv import load_dotenv
         load_dotenv()
         return os.getenv("BOT_TOKEN")
 
 
 async def _send_message_async(user_id: int, message_text: str) -> Dict[str, any]:
-    """
-    Асинхронная функция для отправки сообщения
-    Создаёт НОВЫЙ экземпляр бота для каждой отправки
-    """
     from aiogram import Bot
 
     token = get_bot_token()
