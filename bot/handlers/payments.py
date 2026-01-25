@@ -4,7 +4,8 @@ from aiogram.exceptions import TelegramBadRequest
 from aiocryptopay import AioCryptoPay, Networks
 
 from ..config import bot
-from ..core.utils import create_mock_payment, get_plans_for_bot, send_payment_notification, get_user_language
+from ..core.utils import create_mock_payment, get_plans_for_bot, send_payment_notification, get_user_language, \
+    send_purchase_message_to_user
 from ..core.localization import get_localized_message
 from ..keyboards.common import back_keyboard
 
@@ -129,6 +130,13 @@ async def check_crypto_payment(callback: types.CallbackQuery):
                     amount=plan["price_usdt"],
                     transaction_id=str(invoice_id)
                 )
+
+                await send_purchase_message_to_user(
+                    user_id=user_id,
+                    bot_id=bot_id,
+                    plan_id=plan_id,
+                    language=language
+                )
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)
     else:
@@ -219,6 +227,12 @@ async def successful_payment_handler(message: types.Message):
                     payment_method="stars",
                     amount=plan["price_stars"],
                     transaction_id=message.successful_payment.telegram_payment_charge_id
+                )
+                await send_purchase_message_to_user(
+                    user_id=user_id,
+                    bot_id=bot_id,
+                    plan_id=plan_id,
+                    language=language
                 )
         except Exception as e:
             logger.exception("Failed to send admin notification: %s", e)

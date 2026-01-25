@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod
+from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages
+
+
+class MessagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Messages
+        fields = "__all__"
 
 
 class BotSerializer(serializers.ModelSerializer):

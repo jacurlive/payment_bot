@@ -1,7 +1,10 @@
 import aiohttp
+import logging
 
 from .client import request
 from .notifications import send_purchase_notification
+
+logger = logging.getLogger(__name__)
 
 async def get_all_bots():
     resp = await request("GET", "/api/bots/")
@@ -53,19 +56,7 @@ async def get_user_data(telegram_id):
 
 
 async def send_payment_notification(telegram_id, bot_id, plan_id, payment_method, amount, transaction_id=None):
-    """
-    Отправка уведомления о покупке в группу бота
-
-    Args:
-        telegram_id: Telegram ID пользователя
-        bot_id: ID бота
-        plan_id: ID плана подписки
-        payment_method: метод оплаты (str)
-        amount: сумма платежа
-        transaction_id: ID транзакции (опционально)
-    """
     try:
-        # Получаем данные из API
         user_resp = await request("GET", f"/api/users/{telegram_id}/")
         bot_resp = await request("GET", f"/api/bots/{bot_id}/")
         plan_resp = await request("GET", f"/api/plans/{plan_id}/")
@@ -96,11 +87,9 @@ async def send_payment_notification(telegram_id, bot_id, plan_id, payment_method
         )
 
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.exception(f"Ошибка при отправке уведомления о покупке: {e}")
 
-async def send_telegram_message_http_async(bot_token, chat_id, text):
+async def send_telegram_message_http(bot_token, chat_id, text):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
     payload = {
@@ -144,3 +133,67 @@ async def send_telegram_message_http_async(bot_token, chat_id, text):
             "success": False,
             "message": f"❌ Ошибка: {str(e)}"
         }
+
+
+async def send_purchase_message_to_user(user_id, bot_id, plan_id, language):
+    try:
+        bot_resp = await request("GET", f"/api/bots/{bot_id}/")
+        if bot_resp.status_code != 200:
+            logger.error(f"Не удалось получить данные бота {bot_id}: {bot_resp.status_code}")
+            return
+
+        bot_data = bot_resp.json()
+        bot_token = bot_data.get("bot_token")
+
+        if not bot_token:
+            logger.error(f"У бота {bot_id} (@{bot_data.get('username')}) не указан токен")
+            return
+
+        plan_resp = await request("GET", f"/api/plans/{plan_id}/")
+        if plan_resp.status_code != 200:
+            logger.error(f"Не удалось получить данные плана {plan_id}: {plan_resp.status_code}")
+            return
+
+        plan_data = plan_resp.json()
+        duration_days = plan_data.get('duration_days', 30)
+
+        message_resp = await request("GET", "/api/messages/", params={"identifier": "subscription_purchased"})
+        if message_resp.status_code != 200:
+            logger.error(f"Не удалось получить сообщение 'subscription_purchased': {message_resp.status_code}")
+            return
+
+        messages_data = message_resp.json()
+        if not messages_data or len(messages_data) == 0:
+            logger.error("Сообщение 'subscription_purchased' не найдено в БД")
+            return
+
+        message_template = messages_data[0]
+
+        message_field = f'message_{language}'
+        message_text = message_template.get(message_field)
+
+        if not message_text:
+            message_text = message_template.get('message_ru')
+            if not message_text:
+                logger.error(f"Нет текста сообщения для языка {language}")
+                return
+
+        from datetime import datetime, timedelta
+        end_date = datetime.now() + timedelta(days=duration_days)
+
+        from payment.utils import format_message, send_telegram_message_http
+        formatted_message = format_message(message_text, end_date)
+
+        result = send_telegram_message_http(
+            bot_token=bot_token,
+            chat_id=user_id,
+            text=formatted_message
+        )
+
+        if result['success']:
+            logger.info(f"✅ Сообщение о покупке отправлено пользователю {user_id} от бота @{bot_data.get('username')}")
+        else:
+            logger.error(f"❌ Не удалось отправить сообщение пользователю {user_id}: {result['message']}")
+
+    except Exception as e:
+        logger.exception(f"Ошибка при отправке сообщения о покупке пользователю {user_id}: {e}")

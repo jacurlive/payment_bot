@@ -9,6 +9,7 @@ from .views import (
     FullPaymentReportView,
     PaymentSummaryReportView,
     PaymentMethodViewSet,
+    MessageViewSet,
     is_subscribed,
     subscribers,
 )
@@ -20,6 +21,7 @@ router.register(r"users", UserViewSet)
 router.register(r"subscriptions", SubscriptionViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"methods", PaymentMethodViewSet)
+router.register(r"messages", MessageViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),

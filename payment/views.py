@@ -14,48 +14,16 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from datetime import datetime
 
-from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod
+from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
     UserSerializer,
     SubscriptionSerializer,
     PaymentSerializer,
-    PaymentMethodSerializer
+    PaymentMethodSerializer,
+    MessagesSerializer
 )
-
-
-# class PaymentReportView(APIView):
-#
-#     def get(self, request):
-#         # создаём excel-файл в памяти
-#         wb = Workbook()
-#         ws = wb.active
-#         ws.title = "Payments"
-#
-#         # заголовки таблицы
-#         ws.append(["ID", "User", "Amount", "Status", "Created At"])
-#
-#         # данные
-#         payments = Payment.objects.all().select_related("user")
-#         for p in payments:
-#             ws.append([
-#                 p.id,
-#                 p.user.username if p.user else "-",
-#                 p.amount,
-#                 p.status,
-#                 p.created_at.strftime("%Y-%m-%d %H:%M"),
-#             ])
-#
-#         # записываем в память
-#         file_stream = io.BytesIO()
-#         wb.save(file_stream)
-#         file_stream.seek(0)
-#
-#         # возвращаем файл
-#         response = FileResponse(file_stream, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-#         response["Content-Disposition"] = 'attachment; filename="payments_report.xlsx"'
-#         return response
 
 
 class FullPaymentReportView(APIView):
@@ -251,6 +219,20 @@ class UserViewSet(viewsets.ModelViewSet):
 class PaymentMethodViewSet(viewsets.ModelViewSet):
     queryset = PaymentMethod.objects.filter(is_active=True)
     serializer_class = PaymentMethodSerializer
+
+
+class MessageViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Messages.objects.all()
+    serializer_class = MessagesSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        identifier = self.request.query_params.get("identifier")
+
+        if identifier:
+            queryset = queryset.filter(identifier=identifier)
+
+        return queryset
 
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
