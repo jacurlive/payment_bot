@@ -26,7 +26,24 @@ class UserSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class SubscriptionSerializer(serializers.ModelSerializer):
+class SubscriptionCreateSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(
+        slug_field="telegram_id",
+        queryset=User.objects.all()
+    )
+    bot = serializers.PrimaryKeyRelatedField(
+        queryset=Bot.objects.all()
+    )
+    plan = serializers.PrimaryKeyRelatedField(
+        queryset=SubscriptionPlan.objects.all()
+    )
+
+    class Meta:
+        model = Subscription
+        fields = "__all__"
+
+
+class SubscriptionReadSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     bot = BotSerializer(read_only=True)
     plan = SubscriptionPlanSerializer(read_only=True)
@@ -36,10 +53,20 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+# class SubscriptionSerializer(serializers.ModelSerializer):
+#     user = UserSerializer(read_only=True)
+#     bot = BotSerializer(read_only=True)
+#     plan = SubscriptionPlanSerializer(read_only=True)
+#
+#     class Meta:
+#         model = Subscription
+#         fields = "__all__"
+
+
 class PaymentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     bot = BotSerializer(read_only=True)
-    subscription = SubscriptionSerializer(read_only=True)
+    subscription = SubscriptionCreateSerializer(read_only=True)
 
     class Meta:
         model = Payment

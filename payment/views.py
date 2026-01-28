@@ -19,7 +19,9 @@ from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
     UserSerializer,
-    SubscriptionSerializer,
+    # SubscriptionSerializer,
+    SubscriptionCreateSerializer,
+    SubscriptionReadSerializer,
     PaymentSerializer,
     PaymentMethodSerializer,
     MessagesSerializer
@@ -237,37 +239,46 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
     queryset = Subscription.objects.all()
-    serializer_class = SubscriptionSerializer
 
-    @action(detail=False, methods=["post"])
-    def activate(self, request):
-        """
-        Ручная активация подписки (бесплатная).
-        {
-          "telegram_id": 123456,
-          "bot_id": 1,
-          "plan_id": 2
-        }
-        """
-        telegram_id = request.data.get("telegram_id")
-        bot_id = request.data.get("bot_id")
-        plan_id = request.data.get("plan_id")
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return SubscriptionReadSerializer
+        return SubscriptionCreateSerializer
 
-        user, _ = User.objects.get_or_create(telegram_id=telegram_id)
-        bot = get_object_or_404(Bot, id=bot_id)
-        plan = get_object_or_404(SubscriptionPlan, id=plan_id)
 
-        start = timezone.now()
-        if plan.duration_days:
-            end = start + timezone.timedelta(days=plan.duration_days)
-        else:
-            end = None
-
-        sub = Subscription.objects.create(
-            user=user, bot=bot, plan=plan, start_date=start, end_date=end, is_active=True
-        )
-
-        return Response({"status": "activated", "subscription_id": sub.id})
+# class SubscriptionViewSet(viewsets.ModelViewSet):
+#     queryset = Subscription.objects.all()
+#     serializer_class = SubscriptionSerializer
+#
+#     @action(detail=False, methods=["post"])
+#     def activate(self, request):
+#         """
+#         Ручная активация подписки (бесплатная).
+#         {
+#           "telegram_id": 123456,
+#           "bot_id": 1,
+#           "plan_id": 2
+#         }
+#         """
+#         telegram_id = request.data.get("telegram_id")
+#         bot_id = request.data.get("bot_id")
+#         plan_id = request.data.get("plan_id")
+#
+#         user, _ = User.objects.get_or_create(telegram_id=telegram_id)
+#         bot = get_object_or_404(Bot, id=bot_id)
+#         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+#
+#         start = timezone.now()
+#         if plan.duration_days:
+#             end = start + timezone.timedelta(days=plan.duration_days)
+#         else:
+#             end = None
+#
+#         sub = Subscription.objects.create(
+#             user=user, bot=bot, plan=plan, start_date=start, end_date=end, is_active=True
+#         )
+#
+#         return Response({"status": "activated", "subscription_id": sub.id})
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
