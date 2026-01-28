@@ -219,7 +219,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class PaymentMethodViewSet(viewsets.ModelViewSet):
-    queryset = PaymentMethod.objects.filter(is_active=True)
+    queryset = PaymentMethod.objects.filter()
     serializer_class = PaymentMethodSerializer
 
 

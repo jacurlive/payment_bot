@@ -27,8 +27,12 @@ async def get_plans_for_bot(bot_id):
     return resp.json() if resp.status_code == 200 else []
 
 async def get_payment_methods():
-    resp = await request("GET", f"/api/methods/")
-    return resp.json() if resp.status_code == 200 else []
+    resp = await request("GET", "/api/methods/")
+    if resp.status_code != 200:
+        return []
+
+    methods = resp.json()
+    return [m for m in methods if m.get("is_active") is True]
 
 async def create_mock_payment(telegram_id, bot_id, plan_id):
     payload = {"telegram_id": telegram_id, "bot_id": bot_id, "plan_id": plan_id, "method": "stub"}
