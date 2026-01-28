@@ -22,7 +22,8 @@ from .serializers import (
     # SubscriptionSerializer,
     SubscriptionCreateSerializer,
     SubscriptionReadSerializer,
-    PaymentSerializer,
+    PaymentCreateSerializer,
+    PaymentReadSerializer,
     PaymentMethodSerializer,
     MessagesSerializer
 )
@@ -283,19 +284,14 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
-    serializer_class = PaymentSerializer
+
+    def get_serializer_class(self):
+        if self.action in ["create", "mock"]:
+            return PaymentCreateSerializer
+        return PaymentReadSerializer
 
     @action(detail=False, methods=["post"])
     def mock(self, request):
-        """
-        Тестовая покупка (заглушка).
-        {
-          "telegram_id": 123456,
-          "bot_id": 1,
-          "plan_id": 2,
-          "method": "stub"
-        }
-        """
         telegram_id = request.data.get("telegram_id")
         bot_id = request.data.get("bot_id")
         plan_id = request.data.get("plan_id")
@@ -309,64 +305,115 @@ class PaymentViewSet(viewsets.ModelViewSet):
         end = start + timezone.timedelta(days=plan.duration_days) if plan.duration_days else None
 
         sub = Subscription.objects.create(
-            user=user, bot=bot, plan=plan, start_date=start, end_date=end, is_active=True
+            user=user,
+            bot=bot,
+            plan=plan,
+            start_date=start,
+            end_date=end,
+            is_active=True
         )
 
         payment = Payment.objects.create(
-            user=user, bot=bot, subscription=sub, method=method,
-            amount=plan.price_usdt, status="success"
+            user=user,
+            bot=bot,
+            subscription=sub,
+            method=method,
+            amount=plan.price_usdt,
+            status="success"
         )
 
-        return Response({
-            "status": "success",
-            "subscription_id": sub.id,
-            "payment_id": payment.id
-        })
-
-
-    @action(detail=False, methods=["get"])
-    def report(self, request):
-
-        from_date = request.GET.get("from")
-        to_date = request.GET.get("to")
-
-        qs = Payment.objects.filter(status="success")
-
-        if from_date:
-            qs = qs.filter(created_at__date__gte=from_date)
-        if to_date:
-            qs = qs.filter(created_at__date__lte=to_date)
-
-        total_revenue = qs.aggregate(total=Sum("amount"))["total"] or 0
-        total_payments = qs.count()
-
-        by_method = (
-            qs.values("method")
-            .annotate(count=Count("id"), amount=Sum("amount"))
-            .order_by()
+        return Response(
+            PaymentReadSerializer(payment).data,
+            status=201
         )
-        by_method_dict = {
-            item["method"]: {"count": item["count"], "amount": item["amount"] or 0}
-            for item in by_method
-        }
 
-        by_bot = (
-            qs.values("bot__username")
-            .annotate(count=Count("id"), amount=Sum("amount"))
-            .order_by()
-        )
-        by_bot_list = [
-            {"bot": item["bot__username"], "count": item["count"], "amount": item["amount"] or 0}
-            for item in by_bot
-        ]
 
-        return Response({
-            "total_revenue": total_revenue,
-            "total_payments": total_payments,
-            "by_method": by_method_dict,
-            "by_bot": by_bot_list,
-            "period": {"from": from_date, "to": to_date},
-        })
+# class PaymentViewSet(viewsets.ModelViewSet):
+#     queryset = Payment.objects.all()
+#     serializer_class = PaymentSerializer
+#
+#     @action(detail=False, methods=["post"])
+#     def mock(self, request):
+#         """
+#         Тестовая покупка (заглушка).
+#         {
+#           "telegram_id": 123456,
+#           "bot_id": 1,
+#           "plan_id": 2,
+#           "method": "stub"
+#         }
+#         """
+#         telegram_id = request.data.get("telegram_id")
+#         bot_id = request.data.get("bot_id")
+#         plan_id = request.data.get("plan_id")
+#         method = request.data.get("method", "stub")
+#
+#         user, _ = User.objects.get_or_create(telegram_id=telegram_id)
+#         bot = get_object_or_404(Bot, id=bot_id)
+#         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+#
+#         start = timezone.now()
+#         end = start + timezone.timedelta(days=plan.duration_days) if plan.duration_days else None
+#
+#         sub = Subscription.objects.create(
+#             user=user, bot=bot, plan=plan, start_date=start, end_date=end, is_active=True
+#         )
+#
+#         payment = Payment.objects.create(
+#             user=user, bot=bot, subscription=sub, method=method,
+#             amount=plan.price_usdt, status="success"
+#         )
+#
+#         return Response({
+#             "status": "success",
+#             "subscription_id": sub.id,
+#             "payment_id": payment.id
+#         })
+#
+#
+#     @action(detail=False, methods=["get"])
+#     def report(self, request):
+#
+#         from_date = request.GET.get("from")
+#         to_date = request.GET.get("to")
+#
+#         qs = Payment.objects.filter(status="success")
+#
+#         if from_date:
+#             qs = qs.filter(created_at__date__gte=from_date)
+#         if to_date:
+#             qs = qs.filter(created_at__date__lte=to_date)
+#
+#         total_revenue = qs.aggregate(total=Sum("amount"))["total"] or 0
+#         total_payments = qs.count()
+#
+#         by_method = (
+#             qs.values("method")
+#             .annotate(count=Count("id"), amount=Sum("amount"))
+#             .order_by()
+#         )
+#         by_method_dict = {
+#             item["method"]: {"count": item["count"], "amount": item["amount"] or 0}
+#             for item in by_method
+#         }
+#
+#         by_bot = (
+#             qs.values("bot__username")
+#             .annotate(count=Count("id"), amount=Sum("amount"))
+#             .order_by()
+#         )
+#         by_bot_list = [
+#             {"bot": item["bot__username"], "count": item["count"], "amount": item["amount"] or 0}
+#             for item in by_bot
+#         ]
+#
+#         return Response({
+#             "total_revenue": total_revenue,
+#             "total_payments": total_payments,
+#             "by_method": by_method_dict,
+#             "by_bot": by_bot_list,
+#             "period": {"from": from_date, "to": to_date},
+#         })
 
 
 # --------- API for Bots ---------

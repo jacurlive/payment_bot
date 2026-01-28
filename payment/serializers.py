@@ -63,10 +63,39 @@ class SubscriptionReadSerializer(serializers.ModelSerializer):
 #         fields = "__all__"
 
 
-class PaymentSerializer(serializers.ModelSerializer):
+class PaymentCreateSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(write_only=True)
+    bot_id = serializers.IntegerField(write_only=True)
+    subscription_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            "user_id",
+            "bot_id",
+            "subscription_id",
+            "method",
+            "amount",
+            "status",
+        ]
+
+    def create(self, validated_data):
+        user = User.objects.get(telegram_id=validated_data.pop("user_id"))
+        bot = Bot.objects.get(id=validated_data.pop("bot_id"))
+        subscription = Subscription.objects.get(id=validated_data.pop("subscription_id"))
+
+        return Payment.objects.create(
+            user=user,
+            bot=bot,
+            subscription=subscription,
+            **validated_data
+        )
+
+
+class PaymentReadSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     bot = BotSerializer(read_only=True)
-    subscription = SubscriptionCreateSerializer(read_only=True)
+    subscription = SubscriptionReadSerializer(read_only=True)
 
     class Meta:
         model = Payment
