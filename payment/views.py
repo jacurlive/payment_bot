@@ -224,7 +224,7 @@ class PaymentMethodViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentMethodSerializer
 
 
-class MessageViewSet(viewsets.ReadOnlyModelViewSet):
+class MessageViewSet(viewsets.ModelViewSet):
     queryset = Messages.objects.all()
     serializer_class = MessagesSerializer
 
