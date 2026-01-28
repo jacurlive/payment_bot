@@ -5,7 +5,7 @@ class Bot(models.Model):
     title = models.CharField(max_length=150, blank=True)
     notification_group_id = models.BigIntegerField(null=True, blank=True)
     bot_token = models.CharField(max_length=255, null=True, blank=True)
-    request_url = models.CharField(max_length=300, null=True, blank=True)
+    request_port = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
