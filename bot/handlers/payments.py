@@ -113,7 +113,8 @@ async def check_crypto_payment(callback: types.CallbackQuery):
     resp = await create_mock_payment(
         telegram_id=callback.message.from_user.id,
         bot_id=bot_id,
-        plan_id=plan_id
+        plan_id=plan_id,
+        method="crypto"
     )
 
     if resp.get("status") == "success":
@@ -209,7 +210,8 @@ async def successful_payment_handler(message: types.Message):
     resp = await create_mock_payment(
         telegram_id=message.from_user.id,
         bot_id=bot_id,
-        plan_id=plan_id
+        plan_id=plan_id,
+        method='stars'
     )
     print(resp)
     if resp.get("status") == "success":

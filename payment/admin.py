@@ -49,8 +49,8 @@ class BotAdmin(admin.ModelAdmin):
 
 @admin.register(SubscriptionPlan)
 class SubscriptionPlanAdmin(admin.ModelAdmin):
-    list_display = ("bot", "name", "duration_days", "price_usdt", "is_active", "created_at")
-    list_display_links = ("bot", "name", "duration_days", "price_usdt")
+    list_display = ("id", "bot", "name", "duration_days", "price_usdt", "is_active", "created_at")
+    list_display_links = ("id", "bot", "name", "duration_days", "price_usdt")
 
     class Meta:
         css = {

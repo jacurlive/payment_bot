@@ -1,4 +1,5 @@
 import io
+import logging
 
 from rest_framework import viewsets, status
 from rest_framework.permissions import AllowAny
@@ -12,10 +13,10 @@ from django.db.models import Sum, Count
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages
-from .utils import send_test_message_sync, format_message
+from .utils import send_test_message_sync, format_message, send_telegram_message_http
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
@@ -30,8 +31,11 @@ from .serializers import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class FullPaymentReportView(APIView):
-    authentication_classes = []  # отключаем DRF авторизацию
+    authentication_classes = []
     permission_classes = []
 
     def get(self, request):
@@ -512,3 +516,125 @@ def send_test_message(request):
         return Response(result, status=status.HTTP_200_OK)
     else:
         return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def send_purchase_notification(request):
+    """
+    API endpoint для отправки уведомления о покупке подписки пользователю
+
+    POST /api/send-purchase-notification/
+
+    Body:
+    {
+        "user_id": 123456789,
+        "bot_id": 1,
+        "plan_id": 5,
+        "language": "ru"
+    }
+
+    Response:
+    {
+        "success": true,
+        "message": "✅ Сообщение о покупке отправлено пользователю 123456789"
+    }
+    """
+    # Получаем параметры
+    user_id = request.data.get('user_id')
+    bot_id = request.data.get('bot_id')
+    plan_id = request.data.get('plan_id')
+    language = request.data.get('language', 'ru')
+
+    # Валидация
+    if not user_id:
+        return Response(
+            {"success": False, "message": "❌ Параметр 'user_id' обязателен"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not bot_id:
+        return Response(
+            {"success": False, "message": "❌ Параметр 'bot_id' обязателен"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not plan_id:
+        return Response(
+            {"success": False, "message": "❌ Параметр 'plan_id' обязателен"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        return Response(
+            {"success": False, "message": "❌ Параметр 'user_id' должен быть числом"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        try:
+            bot = Bot.objects.get(id=bot_id)
+        except Bot.DoesNotExist:
+            return Response(
+                {"success": False, "message": f"❌ Бот с ID {bot_id} не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not bot.bot_token:
+            return Response(
+                {"success": False, "message": f"❌ У бота @{bot.username} не указан токен"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            plan = SubscriptionPlan.objects.get(id=plan_id)
+        except SubscriptionPlan.DoesNotExist:
+            return Response(
+                {"success": False, "message": f"❌ План с ID {plan_id} не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            message_template = Messages.objects.get(identifier='subscription_purchased')
+        except Messages.DoesNotExist:
+            return Response(
+                {"success": False, "message": "❌ Сообщение 'subscription_purchased' не найдено в БД"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        message_field = f'message_{language}'
+        message_text = getattr(message_template, message_field, None)
+
+        if not message_text:
+            message_text = message_template.message_ru
+            if not message_text:
+                return Response(
+                    {"success": False, "message": f"❌ Нет текста сообщения для языка {language}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        duration_days = plan.duration_days or 30
+        end_date = datetime.now() + timedelta(days=duration_days)
+
+        formatted_message = format_message(message_text, end_date)
+
+        result = send_telegram_message_http(
+            bot_token=bot.bot_token,
+            chat_id=user_id,
+            text=formatted_message
+        )
+
+        if result['success']:
+            logger.info(f"✅ Сообщение о покупке отправлено пользователю {user_id} от бота @{bot.username}")
+            return Response(result, status=status.HTTP_200_OK)
+        else:
+            logger.error(f"❌ Не удалось отправить сообщение пользователю {user_id}: {result['message']}")
+            return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except Exception as e:
+        logger.exception(f"Ошибка при отправке сообщения о покупке: {e}")
+        return Response(
+            {"success": False, "message": f"❌ Неожиданная ошибка: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
