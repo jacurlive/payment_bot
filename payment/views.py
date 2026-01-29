@@ -15,7 +15,7 @@ from openpyxl.utils import get_column_letter
 from datetime import datetime
 
 from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages
-from .utils import send_test_message_sync
+from .utils import send_test_message_sync, format_message
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
@@ -473,7 +473,6 @@ def send_test_message(request):
         "message": "✅ Сообщение успешно отправлено пользователю 123456789"
     }
     """
-    # Валидация входных данных
     user_id = request.data.get('user_id')
     message_text = request.data.get('message_text')
 
@@ -495,7 +494,6 @@ def send_test_message(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Проверка что user_id это число
     try:
         user_id = int(user_id)
     except (ValueError, TypeError):
@@ -507,10 +505,9 @@ def send_test_message(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Отправка сообщения
-    result = send_test_message_sync(user_id, message_text)
+    formatted_text = format_message(message_text)
+    result = send_test_message_sync(user_id, formatted_text)
 
-    # Возвращаем результат
     if result['success']:
         return Response(result, status=status.HTTP_200_OK)
     else:
