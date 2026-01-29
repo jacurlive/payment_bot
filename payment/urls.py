@@ -12,6 +12,7 @@ from .views import (
     MessageViewSet,
     is_subscribed,
     subscribers,
+    send_test_message
 )
 
 router = DefaultRouter()
@@ -27,6 +28,7 @@ urlpatterns = [
     path("", include(router.urls)),
     path("is_subscribed/", is_subscribed),
     path("subscribers/", subscribers),
+    path("send_test_message/", send_test_message),
     path("reports/payments/", FullPaymentReportView.as_view()),
     path("reports/payments/summary/", PaymentSummaryReportView.as_view())
 ]

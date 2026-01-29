@@ -1,6 +1,6 @@
 import io
 
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.decorators import action, api_view, permission_classes
@@ -15,6 +15,7 @@ from openpyxl.utils import get_column_letter
 from datetime import datetime
 
 from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages
+from .utils import send_test_message_sync
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
@@ -451,3 +452,66 @@ def subscribers(request):
     user_ids = list(subs.values_list("user__telegram_id", flat=True))
 
     return Response(user_ids)
+
+
+@api_view(['POST'])
+def send_test_message(request):
+    """
+    API endpoint для отправки тестового сообщения пользователю
+
+    POST /api/send-test-message/
+
+    Body:
+    {
+        "user_id": 123456789,
+        "message_text": "Текст сообщения"
+    }
+
+    Response:
+    {
+        "success": true,
+        "message": "✅ Сообщение успешно отправлено пользователю 123456789"
+    }
+    """
+    # Валидация входных данных
+    user_id = request.data.get('user_id')
+    message_text = request.data.get('message_text')
+
+    if not user_id:
+        return Response(
+            {
+                "success": False,
+                "message": "❌ Параметр 'user_id' обязателен"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not message_text:
+        return Response(
+            {
+                "success": False,
+                "message": "❌ Параметр 'message_text' обязателен"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Проверка что user_id это число
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        return Response(
+            {
+                "success": False,
+                "message": "❌ Параметр 'user_id' должен быть числом"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Отправка сообщения
+    result = send_test_message_sync(user_id, message_text)
+
+    # Возвращаем результат
+    if result['success']:
+        return Response(result, status=status.HTTP_200_OK)
+    else:
+        return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
