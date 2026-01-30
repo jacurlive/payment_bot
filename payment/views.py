@@ -519,7 +519,7 @@ def send_test_message(request):
 
 
 @api_view(['POST'])
-def send_purchase_notification(request):
+def send_notification(request):
     """
     API endpoint для отправки уведомления о покупке подписки пользователю
 
@@ -528,6 +528,7 @@ def send_purchase_notification(request):
     Body:
     {
         "user_id": 123456789,
+        "message_identifier": "subscription_purchased",
         "bot_id": 1,
         "plan_id": 5,
         "language": "ru"
@@ -539,13 +540,12 @@ def send_purchase_notification(request):
         "message": "✅ Сообщение о покупке отправлено пользователю 123456789"
     }
     """
-    # Получаем параметры
     user_id = request.data.get('user_id')
     bot_id = request.data.get('bot_id')
     plan_id = request.data.get('plan_id')
+    message_identifier = request.data.get('message_identifier')
     language = request.data.get('language', 'ru')
 
-    # Валидация
     if not user_id:
         return Response(
             {"success": False, "message": "❌ Параметр 'user_id' обязателен"},
@@ -596,7 +596,7 @@ def send_purchase_notification(request):
             )
 
         try:
-            message_template = Messages.objects.get(identifier='subscription_purchased')
+            message_template = Messages.objects.get(identifier=message_identifier)
         except Messages.DoesNotExist:
             return Response(
                 {"success": False, "message": "❌ Сообщение 'subscription_purchased' не найдено в БД"},
