@@ -17,11 +17,11 @@ from datetime import datetime, timedelta
 
 from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages, BotPlan
 from .utils import send_test_message_sync, format_message, send_telegram_message_http
+from .bot_api import add_subscription_to_bot, delete_subscription_from_bot
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
     UserSerializer,
-    # SubscriptionSerializer,
     SubscriptionCreateSerializer,
     SubscriptionReadSerializer,
     PaymentCreateSerializer,
@@ -44,7 +44,6 @@ class FullPaymentReportView(APIView):
         date_to_str = request.query_params.get("to")
         bot_id = request.query_params.get("bot_id")
 
-        # Обработка диапазона дат
         if date_from_str and date_to_str:
             date_from = timezone.make_aware(datetime.strptime(date_from_str, "%Y-%m-%d"))
             date_to = timezone.make_aware(datetime.strptime(date_to_str, "%Y-%m-%d"))
@@ -237,12 +236,10 @@ class BotPlanViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
 
-        # Фильтр по боту
         bot_id = self.request.query_params.get('bot_id')
         if bot_id:
             queryset = queryset.filter(bot_id=bot_id)
 
-        # Фильтр по активности
         is_active = self.request.query_params.get('is_active')
         if is_active is not None:
             is_active_bool = is_active.lower() in ('true', '1', 'yes')
@@ -620,6 +617,90 @@ def send_notification(request):
 
     except Exception as e:
         logger.exception(f"Ошибка при отправке сообщения о покупке: {e}")
+        return Response(
+            {"success": False, "message": f"❌ Неожиданная ошибка: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+def sync_subscription_status(request):
+    """
+    API endpoint для синхронизации статуса подписки с ботом клиента
+
+    POST /api/sync-subscription/
+
+    Body:
+    {
+        "user_id": 123456789,
+        "bot_id": 1,
+        "action": "activate"  // или "deactivate"
+    }
+
+    Response:
+    {
+        "success": true,
+        "message": "✅ Подписка активирована",
+        "active": true
+    }
+    """
+    user_id = request.data.get('user_id')
+    bot_id = request.data.get('bot_id')
+    event = request.data.get('action')  # "activate" | "deactivate"
+
+    if not user_id:
+        return Response(
+            {"success": False, "message": "❌ Параметр 'user_id' обязателен"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not bot_id:
+        return Response(
+            {"success": False, "message": "❌ Параметр 'bot_id' обязателен"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not event:
+        return Response(
+            {"success": False, "message": "❌ Параметр 'action' обязателен"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if event not in ['activate', 'deactivate']:
+        return Response(
+            {"success": False, "message": "❌ Параметр 'action' должен быть 'activate' или 'deactivate'"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        return Response(
+            {"success": False, "message": "❌ Параметр 'user_id' должен быть числом"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        try:
+            bot = Bot.objects.get(id=bot_id)
+        except Bot.DoesNotExist:
+            return Response(
+                {"success": False, "message": f"❌ Бот с ID {bot_id} не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if event == 'activate':
+            result = add_subscription_to_bot(bot, user_id)
+        else:  # deactivate
+            result = delete_subscription_from_bot(bot, user_id)
+
+        if result['success']:
+            return Response(result, status=status.HTTP_200_OK)
+        else:
+            return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except Exception as e:
+        logger.exception(f"Ошибка при синхронизации подписки: {e}")
         return Response(
             {"success": False, "message": f"❌ Неожиданная ошибка: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
