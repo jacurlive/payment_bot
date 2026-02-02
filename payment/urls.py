@@ -10,6 +10,7 @@ from .views import (
     PaymentSummaryReportView,
     PaymentMethodViewSet,
     MessageViewSet,
+    BotPlanViewSet,
     is_subscribed,
     subscribers,
     send_test_message,
@@ -24,6 +25,7 @@ router.register(r"subscriptions", SubscriptionViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"methods", PaymentMethodViewSet)
 router.register(r"messages", MessageViewSet)
+router.register(r"bot_plans", BotPlanViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),

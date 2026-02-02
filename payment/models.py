@@ -17,14 +17,14 @@ class Bot(models.Model):
 
 
 class SubscriptionPlan(models.Model):
-    bot = models.ForeignKey(Bot, on_delete=models.CASCADE, related_name="plan")
     name = models.CharField(max_length=64)
     duration_days = models.PositiveIntegerField(null=True, blank=True)
 
-    price_usdt = models.DecimalField(max_digits=12, decimal_places=2)
-    price_uzs = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    price_stars = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    price_rub = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    price_usdt = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Цена USDT")
+    price_uzs = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Цена UZS")
+    price_stars = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Цена Stars")
+    price_rub = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Цена RUB")
+
     is_active = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -35,6 +35,33 @@ class SubscriptionPlan(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class BotPlan(models.Model):
+    bot = models.ForeignKey(
+        Bot,
+        on_delete=models.CASCADE,
+        related_name="bot_plans",
+        verbose_name="Бот"
+    )
+    plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.CASCADE,
+        related_name="bot_plans",
+        verbose_name="План"
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "План для бота"
+        verbose_name_plural = "Планы для ботов"
+        unique_together = ('bot', 'plan')
+        ordering = ['plan__duration_days']
+
+    def __str__(self):
+        return f"{self.bot.username} - {self.plan.name}"
 
 
 class Language(models.TextChoices):

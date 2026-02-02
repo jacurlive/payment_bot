@@ -4,12 +4,10 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 from django.template.response import TemplateResponse
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 
 from .utils import send_test_message_sync, format_message
-from .models import User, Bot, SubscriptionPlan, Subscription, Payment, PaymentMethod, Messages
+from .models import User, Bot, SubscriptionPlan, Subscription, Payment, PaymentMethod, Messages, BotPlan
 
 
 old_index = admin.site.index
@@ -49,13 +47,19 @@ class BotAdmin(admin.ModelAdmin):
 
 @admin.register(SubscriptionPlan)
 class SubscriptionPlanAdmin(admin.ModelAdmin):
-    list_display = ("id", "bot", "name", "duration_days", "price_usdt", "is_active", "created_at")
-    list_display_links = ("id", "bot", "name", "duration_days", "price_usdt")
+    list_display = ("id", "name", "duration_days", "price_usdt", "is_active", "created_at")
+    list_display_links = ("id", "name", "duration_days", "price_usdt")
 
     class Meta:
         css = {
             'all': ('admin/no-bold.css',)
         }
+
+
+@admin.register(BotPlan)
+class BotPlanAdmin(admin.ModelAdmin):
+    list_display = ("id", "bot", "plan", "created_at")
+    list_display_links = ("id", "bot", "plan")
 
 
 @admin.register(Subscription)

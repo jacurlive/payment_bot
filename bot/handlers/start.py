@@ -86,8 +86,6 @@ async def select_language(callback: types.CallbackQuery):
 
 @router.message(Command("language"))
 async def language_handler(message: types.Message):
-    user_id = message.from_user.id
-
     await message.answer(
         "🌍 Выберите язык / Choose language / Tilni tanlang:",
         reply_markup=language_selection_keyboard()

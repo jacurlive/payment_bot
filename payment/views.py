@@ -15,7 +15,7 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from datetime import datetime, timedelta
 
-from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages
+from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages, BotPlan
 from .utils import send_test_message_sync, format_message, send_telegram_message_http
 from .serializers import (
     BotSerializer,
@@ -27,7 +27,8 @@ from .serializers import (
     PaymentCreateSerializer,
     PaymentReadSerializer,
     PaymentMethodSerializer,
-    MessagesSerializer
+    MessagesSerializer,
+    BotPlan, BotPlanSerializer
 )
 
 
@@ -218,6 +219,114 @@ class SubscriptionPlanViewSet(viewsets.ModelViewSet):
         return queryset.order_by("duration_days")
 
 
+class BotPlanViewSet(viewsets.ModelViewSet):
+    """
+    API для работы с планами ботов (связь Bot-Plan с ценами)
+
+    GET /api/bot-plans/ - список всех планов ботов
+    GET /api/bot-plans/{id}/ - получить план бота по ID
+    GET /api/bot-plans/?bot_id=1 - планы для конкретного бота
+    GET /api/bot-plans/?bot_id=1&is_active=true - только активные планы бота
+    POST /api/bot-plans/ - привязать план к боту
+    PUT /api/bot-plans/{id}/ - обновить цены/активность
+    DELETE /api/bot-plans/{id}/ - удалить связь
+    """
+    queryset = BotPlan.objects.select_related('bot', 'plan').all()
+    serializer_class = BotPlanSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Фильтр по боту
+        bot_id = self.request.query_params.get('bot_id')
+        if bot_id:
+            queryset = queryset.filter(bot_id=bot_id)
+
+        # Фильтр по активности
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            is_active_bool = is_active.lower() in ('true', '1', 'yes')
+            queryset = queryset.filter(is_active=is_active_bool)
+
+        return queryset
+
+    @action(detail=False, methods=['post'])
+    def bulk_create(self, request):
+        """
+        Массовое создание планов для бота
+
+        POST /api/bot_plans/bulk_create/
+        {
+            "bot_id": 1,
+            "plans": [
+                {
+                    "plan_id": 1,
+                    "price_usdt": 10.00,
+                    "price_stars": 100,
+                    "is_active": true
+                },
+                {
+                    "plan_id": 2,
+                    "price_usdt": 25.00,
+                    "price_stars": 250,
+                    "is_active": true
+                }
+            ]
+        }
+        """
+        bot_id = request.data.get('bot_id')
+        plans_data = request.data.get('plans', [])
+
+        if not bot_id:
+            return Response(
+                {"error": "bot_id обязателен"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            bot = Bot.objects.get(id=bot_id)
+        except Bot.DoesNotExist:
+            return Response(
+                {"error": f"Бот с ID {bot_id} не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        created_plans = []
+        errors = []
+
+        for plan_data in plans_data:
+            plan_id = plan_data.get('plan_id')
+
+            try:
+                plan = SubscriptionPlan.objects.get(id=plan_id)
+
+                bot_plan, created = BotPlan.objects.update_or_create(
+                    bot=bot,
+                    plan=plan,
+                    defaults={
+                        'is_active': plan_data.get('is_active', True),
+                    }
+                )
+
+                created_plans.append({
+                    'id': bot_plan.id,
+                    'plan': plan.name,
+                    'created': created
+                })
+
+            except SubscriptionPlan.DoesNotExist:
+                errors.append(f"План с ID {plan_id} не найден")
+            except Exception as e:
+                errors.append(f"Ошибка при создании плана {plan_id}: {str(e)}")
+
+        return Response({
+            'success': True,
+            'created': len(created_plans),
+            'plans': created_plans,
+            'errors': errors
+        })
+
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -250,41 +359,6 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         if self.action in ["list", "retrieve"]:
             return SubscriptionReadSerializer
         return SubscriptionCreateSerializer
-
-
-# class SubscriptionViewSet(viewsets.ModelViewSet):
-#     queryset = Subscription.objects.all()
-#     serializer_class = SubscriptionSerializer
-#
-#     @action(detail=False, methods=["post"])
-#     def activate(self, request):
-#         """
-#         Ручная активация подписки (бесплатная).
-#         {
-#           "telegram_id": 123456,
-#           "bot_id": 1,
-#           "plan_id": 2
-#         }
-#         """
-#         telegram_id = request.data.get("telegram_id")
-#         bot_id = request.data.get("bot_id")
-#         plan_id = request.data.get("plan_id")
-#
-#         user, _ = User.objects.get_or_create(telegram_id=telegram_id)
-#         bot = get_object_or_404(Bot, id=bot_id)
-#         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
-#
-#         start = timezone.now()
-#         if plan.duration_days:
-#             end = start + timezone.timedelta(days=plan.duration_days)
-#         else:
-#             end = None
-#
-#         sub = Subscription.objects.create(
-#             user=user, bot=bot, plan=plan, start_date=start, end_date=end, is_active=True
-#         )
-#
-#         return Response({"status": "activated", "subscription_id": sub.id})
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -331,94 +405,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
             PaymentReadSerializer(payment).data,
             status=201
         )
-
-
-# class PaymentViewSet(viewsets.ModelViewSet):
-#     queryset = Payment.objects.all()
-#     serializer_class = PaymentSerializer
-#
-#     @action(detail=False, methods=["post"])
-#     def mock(self, request):
-#         """
-#         Тестовая покупка (заглушка).
-#         {
-#           "telegram_id": 123456,
-#           "bot_id": 1,
-#           "plan_id": 2,
-#           "method": "stub"
-#         }
-#         """
-#         telegram_id = request.data.get("telegram_id")
-#         bot_id = request.data.get("bot_id")
-#         plan_id = request.data.get("plan_id")
-#         method = request.data.get("method", "stub")
-#
-#         user, _ = User.objects.get_or_create(telegram_id=telegram_id)
-#         bot = get_object_or_404(Bot, id=bot_id)
-#         plan = get_object_or_404(SubscriptionPlan, id=plan_id)
-#
-#         start = timezone.now()
-#         end = start + timezone.timedelta(days=plan.duration_days) if plan.duration_days else None
-#
-#         sub = Subscription.objects.create(
-#             user=user, bot=bot, plan=plan, start_date=start, end_date=end, is_active=True
-#         )
-#
-#         payment = Payment.objects.create(
-#             user=user, bot=bot, subscription=sub, method=method,
-#             amount=plan.price_usdt, status="success"
-#         )
-#
-#         return Response({
-#             "status": "success",
-#             "subscription_id": sub.id,
-#             "payment_id": payment.id
-#         })
-#
-#
-#     @action(detail=False, methods=["get"])
-#     def report(self, request):
-#
-#         from_date = request.GET.get("from")
-#         to_date = request.GET.get("to")
-#
-#         qs = Payment.objects.filter(status="success")
-#
-#         if from_date:
-#             qs = qs.filter(created_at__date__gte=from_date)
-#         if to_date:
-#             qs = qs.filter(created_at__date__lte=to_date)
-#
-#         total_revenue = qs.aggregate(total=Sum("amount"))["total"] or 0
-#         total_payments = qs.count()
-#
-#         by_method = (
-#             qs.values("method")
-#             .annotate(count=Count("id"), amount=Sum("amount"))
-#             .order_by()
-#         )
-#         by_method_dict = {
-#             item["method"]: {"count": item["count"], "amount": item["amount"] or 0}
-#             for item in by_method
-#         }
-#
-#         by_bot = (
-#             qs.values("bot__username")
-#             .annotate(count=Count("id"), amount=Sum("amount"))
-#             .order_by()
-#         )
-#         by_bot_list = [
-#             {"bot": item["bot__username"], "count": item["count"], "amount": item["amount"] or 0}
-#             for item in by_bot
-#         ]
-#
-#         return Response({
-#             "total_revenue": total_revenue,
-#             "total_payments": total_payments,
-#             "by_method": by_method_dict,
-#             "by_bot": by_bot_list,
-#             "period": {"from": from_date, "to": to_date},
-#         })
 
 
 # --------- API for Bots ---------

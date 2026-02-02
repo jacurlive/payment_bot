@@ -23,8 +23,32 @@ async def get_bot_by_username(username):
     return resp.json()[0] if resp.status_code == 200 and resp.json() else []
 
 async def get_plans_for_bot(bot_id):
-    resp = await request("GET", f"/api/plans/", params={"bot_id": bot_id})
-    return resp.json() if resp.status_code == 200 else []
+    resp = await request("GET", "/api/bot_plans/", params={"bot_id": bot_id})
+
+    if resp.status_code != 200:
+        return []
+
+    raw_plans = resp.json()
+    result = []
+
+    for item in raw_plans:
+        plan = item.get("plan")
+        if not plan:
+            continue
+
+        result.append({
+            "id": plan["id"],
+            "name": plan["name"],
+            "duration_days": plan["duration_days"],
+            "is_active": item["is_active"],
+            "price_usdt": plan.get("price_usdt"),
+            "price_stars": plan.get("price_stars"),
+            "price_rub": plan.get("price_rub"),
+            "price_uzs": plan.get("price_uzs"),
+        })
+
+    return result
+
 
 async def get_payment_methods():
     resp = await request("GET", "/api/methods/")
