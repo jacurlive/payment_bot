@@ -10,178 +10,140 @@ logger = logging.getLogger(__name__)
 BOT_SERVER_IP = os.getenv('BOT_SERVER_IP')
 
 
-def add_subscription_to_bot(bot, user_id):
+def _make_request(bot, endpoint, user_id):
     """
-    Добавление подписки на стороне бота
+    Базовая функция для GET запросов к боту клиента
 
     Args:
         bot: объект Bot из БД
+        endpoint: путь (add_paid_subscription / delete_paid_subscription / get_paid_subscription)
         user_id: Telegram ID пользователя
 
     Returns:
-        dict: {"success": True/False, "message": "...", "active": True/False}
+        dict: ответ от сервера бота
     """
     if not bot.request_port:
-        logger.error(f"У бота {bot.username} не указан request_port")
-        return {
-            "success": False,
-            "message": "❌ У бота не указан порт для запросов"
-        }
+        return {"ok": False, "error": f"У бота {bot.username} не указан request_port"}
 
-    url = f"http://{BOT_SERVER_IP}:{bot.request_port}/v1/add_paid_subscription"
+    url = f"http://{BOT_SERVER_IP}:{bot.request_port}/v1/{endpoint}"
+    print(url, user_id)
     params = {"chat_id": user_id}
 
     try:
-        response = requests.post(url, params=params, timeout=10)
-        data = response.json()
-
-        if data.get("ok"):
-            active_status = data.get("active", True)
-            logger.info(
-                f"✅ Подписка добавлена для пользователя {user_id} в боте {bot.username} (active={active_status})")
-            return {
-                "success": True,
-                "message": f"✅ Подписка добавлена (active={active_status})",
-                "active": active_status
-            }
-        else:
-            logger.error(f"❌ Не удалось добавить подписку: {data}")
-            return {
-                "success": False,
-                "message": "❌ Бот вернул ok=false"
-            }
-
+        response = requests.get(url, params=params, timeout=10)
+        print(response.json())
+        return response.json()
     except requests.exceptions.Timeout:
-        logger.error(f"❌ Таймаут при запросе к боту {bot.username}")
-        return {
-            "success": False,
-            "message": "❌ Превышено время ожидания ответа от бота"
-        }
+        return {"ok": False, "error": "Превышено время ожидания"}
     except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Ошибка запроса к боту {bot.username}: {e}")
-        return {
-            "success": False,
-            "message": f"❌ Ошибка запроса: {str(e)}"
-        }
+        return {"ok": False, "error": f"Ошибка запроса: {str(e)}"}
     except Exception as e:
-        logger.exception(f"❌ Неожиданная ошибка при добавлении подписки: {e}")
+        return {"ok": False, "error": f"Неожиданная ошибка: {str(e)}"}
+
+
+def check_subscription(bot, user_id):
+    """
+    Проверка подписки на стороне бота
+    GET http://IP:PORT/v1/get_paid_subscription?chat_id=123
+
+    Returns:
+        {"ok": true, "active": true/false}
+        {"ok": false}
+    """
+    return _make_request(bot, "get_paid_subscription", user_id)
+
+
+def add_subscription_to_bot(bot, user_id):
+    """
+    1. Делаем GET на add_paid_subscription
+    2. Проверяем через get_paid_subscription что active=true
+
+    Returns:
+        {"success": True/False, "message": "...", "active": True/False}
+    """
+    logger.info(f"Добавление подписки для {user_id} в боте @{bot.username}")
+
+    add_result = _make_request(bot, "add_paid_subscription", user_id)
+
+    if not add_result.get("ok"):
+        error = add_result.get("error", "Неизвестная ошибка")
+        logger.error(f"❌ Не удалось добавить подписку для {user_id}: {error}")
         return {
             "success": False,
-            "message": f"❌ Неожиданная ошибка: {str(e)}"
+            "message": f"❌ Ошибка при добавлении подписки: {error}",
+            "active": False
+        }
+
+    check_result = check_subscription(bot, user_id)
+
+    if not check_result.get("ok"):
+        error = check_result.get("error", "Неизвестная ошибка")
+        logger.error(f"❌ Не удалось проверить подписку для {user_id}: {error}")
+        return {
+            "success": False,
+            "message": f"❌ Подписка добавлена, но проверка не прошла: {error}",
+            "active": False
+        }
+
+    active = check_result.get("active", False)
+
+    if active:
+        logger.info(f"✅ Подписка активна для {user_id} в боте @{bot.username}")
+        return {
+            "success": True,
+            "message": f"✅ Подписка успешно добавлена и активна",
+            "active": True
+        }
+    else:
+        logger.error(f"❌ Подписка не активна для {user_id} после добавления")
+        return {
+            "success": False,
+            "message": "❌ Подписка добавлена, но не активна",
+            "active": False
         }
 
 
 def delete_subscription_from_bot(bot, user_id):
     """
-    Удаление подписки на стороне бота
-
-    Args:
-        bot: объект Bot из БД
-        user_id: Telegram ID пользователя
+    1. Делаем GET на delete_paid_subscription
+    2. Проверяем через get_paid_subscription что active=false
 
     Returns:
-        dict: {"success": True/False, "message": "..."}
+        {"success": True/False, "message": "..."}
     """
-    if not bot.request_port:
-        logger.error(f"У бота {bot.username} не указан request_port")
+    logger.info(f"Удаление подписки для {user_id} в боте @{bot.username}")
+
+    delete_result = _make_request(bot, "delete_paid_subscription", user_id)
+
+    if not delete_result.get("ok"):
+        error = delete_result.get("error", "Неизвестная ошибка")
+        logger.error(f"❌ Не удалось удалить подписку для {user_id}: {error}")
         return {
             "success": False,
-            "message": "❌ У бота не указан порт для запросов"
+            "message": f"❌ Ошибка при удалении подписки: {error}"
         }
 
-    url = f"http://{BOT_SERVER_IP}:{bot.request_port}/v1/delete_paid_subscription"
-    params = {"chat_id": user_id}
+    check_result = check_subscription(bot, user_id)
 
-    try:
-        response = requests.post(url, params=params, timeout=10)
-        data = response.json()
-
-        if data.get("ok"):
-            logger.info(f"✅ Подписка удалена для пользователя {user_id} в боте {bot.username}")
-            return {
-                "success": True,
-                "message": "✅ Подписка удалена"
-            }
-        else:
-            logger.error(f"❌ Не удалось удалить подписку: {data}")
-            return {
-                "success": False,
-                "message": "❌ Бот вернул ok=false"
-            }
-
-    except requests.exceptions.Timeout:
-        logger.error(f"❌ Таймаут при запросе к боту {bot.username}")
+    if not check_result.get("ok"):
+        error = check_result.get("error", "Неизвестная ошибка")
+        logger.error(f"❌ Не удалось проверить подписку для {user_id}: {error}")
         return {
             "success": False,
-            "message": "❌ Превышено время ожидания ответа от бота"
-        }
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Ошибка запроса к боту {bot.username}: {e}")
-        return {
-            "success": False,
-            "message": f"❌ Ошибка запроса: {str(e)}"
-        }
-    except Exception as e:
-        logger.exception(f"❌ Неожиданная ошибка при удалении подписки: {e}")
-        return {
-            "success": False,
-            "message": f"❌ Неожиданная ошибка: {str(e)}"
+            "message": f"❌ Подписка удалена, но проверка не прошла: {error}"
         }
 
+    active = check_result.get("active", True)
 
-def check_subscription_on_bot(bot, user_id):
-    """
-    Проверка подписки на стороне бота (опционально)
-
-    Args:
-        bot: объект Bot из БД
-        user_id: Telegram ID пользователя
-
-    Returns:
-        dict: {"success": True/False, "subscribed": True/False, "message": "..."}
-    """
-    if not bot.request_port:
-        logger.error(f"У бота {bot.username} не указан request_port")
-        return {
-            "success": False,
-            "message": "❌ У бота не указан порт для запросов",
-            "subscribed": False
-        }
-
-    url = f"http://{BOT_SERVER_IP}:{bot.request_port}/v1/get_paid_subscription"
-    params = {"chat_id": user_id}
-
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
-
-        subscribed = data.get("ok", False)
-
-        logger.info(f"Проверка подписки для {user_id} в боте {bot.username}: {subscribed}")
+    if not active:
+        logger.info(f"✅ Подписка удалена для {user_id} в боте @{bot.username}")
         return {
             "success": True,
-            "subscribed": subscribed,
-            "message": f"✅ Подписка {'активна' if subscribed else 'не активна'}"
+            "message": "✅ Подписка успешно удалена"
         }
-
-    except requests.exceptions.Timeout:
-        logger.error(f"❌ Таймаут при запросе к боту {bot.username}")
+    else:
+        logger.error(f"❌ Подписка всё ещё активна для {user_id} после удаления")
         return {
             "success": False,
-            "message": "❌ Превышено время ожидания ответа от бота",
-            "subscribed": False
-        }
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Ошибка запроса к боту {bot.username}: {e}")
-        return {
-            "success": False,
-            "message": f"❌ Ошибка запроса: {str(e)}",
-            "subscribed": False
-        }
-    except Exception as e:
-        logger.exception(f"❌ Неожиданная ошибка при проверке подписки: {e}")
-        return {
-            "success": False,
-            "message": f"❌ Неожиданная ошибка: {str(e)}",
-            "subscribed": False
+            "message": "❌ Подписка удалена, но всё ещё активна"
         }
