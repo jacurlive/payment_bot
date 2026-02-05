@@ -86,7 +86,8 @@ async def handle_payment(callback: types.CallbackQuery):
 
 @router.message(Command("refund"))
 async def cmd_refund(message: types.Message):
-    t_id = "stxIY2pkytPEiJFMcMDBtPQHpMLUdSbfhLShM3rabAQVdSMrgTyVvAV8RNOPz9CRGEJwUUTYHgDoOpBRNiK2QIlSdgE4SyHcfccseI-Oy0hyxk"
+    text = message.text
+    t_id = text.split(" ")[1]
 
     if t_id is None:
         await message.answer("Transaction not found!")
