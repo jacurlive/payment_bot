@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-kt80fg@tuj-lg+ms5b0w+%4a$-04q*l0jy^6u0-y%uwhl&33s@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'payment.middleware.IPWhitelistMiddleware'
 ]
 
 ROOT_URLCONF = 'root.urls'
