@@ -70,6 +70,7 @@ def payment_created(sender, instance, created, **kwargs):
     if created and instance.status == 'success':
         try:
             send_payment_notification(instance)
+            print(instance)
         except Exception as e:
             logger.exception(f"[Signal] Ошибка при отправке уведомления о платеже: {e}")
 

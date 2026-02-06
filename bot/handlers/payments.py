@@ -21,7 +21,7 @@ STARS_RATE = float(os.getenv("STARS_RATE", 0.017))
 
 CRYPTO_PAY_TOKEN = os.getenv("CRYPTO_PAY_TOKEN")
 
-# ---------- CRYPTO ----------
+# ------------- CRYPTO -----------------
 @router.callback_query(F.data.startswith("pay_crypto:"))
 async def handle_crypto_payment(callback: types.CallbackQuery):
     """
@@ -56,15 +56,22 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
             description=f"Подписка {plan['name']} ({plan['duration_days']} дней)"
         )
 
-        localized_message_1 = await get_localized_message(language, "pay_crypto_bot")
-        localized_message_2 = await get_localized_message(language, "back_btn")
         await crypto.close()
         pay_url = invoice.bot_invoice_url
+        invoice_id = invoice.invoice_id
+
+        localized_message_1 = await get_localized_message(language, "pay_crypto_bot")
+        localized_message_2 = await get_localized_message(language, "check_crypto_pay")
+        localized_message_3 = await get_localized_message(language, "back_btn")
 
         kb = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [types.InlineKeyboardButton(text=localized_message_1, url=pay_url)],
-                [types.InlineKeyboardButton(text=localized_message_2, callback_data="cancel")]
+                [types.InlineKeyboardButton(
+                    text=localized_message_2,
+                    callback_data=f"check_crypto:{invoice_id}:{bot_id}:{plan_id}"  # ← передаём invoice_id
+                )],
+                [types.InlineKeyboardButton(text=localized_message_3, callback_data="cancel")]
             ]
         )
 
@@ -72,11 +79,14 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
         localized_message_2 = await get_localized_message(language, 'plan')
         localized_message_3 = await get_localized_message(language, 'price')
         localized_message_4 = await get_localized_message(language, 'after_buy_text')
+        localized_message_5 = await get_localized_message(language, 'message_check_crypto_pay')
+
         await callback.message.edit_text(
             f"💸 {localized_message_1} <b>CryptoBot</b>\n\n"
             f"{localized_message_2}: <b>{plan['name']}</b>\n"
             f"{localized_message_3}: <b>{price_usdt} USDT</b>\n\n"
-            f"{localized_message_4}",
+            f"{localized_message_4}\n\n"
+            f"{localized_message_5}",  # ← подсказка
             parse_mode="HTML",
             reply_markup=kb,
             disable_web_page_preview=True
@@ -92,26 +102,50 @@ async def handle_crypto_payment(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("check_crypto:"))
 async def check_crypto_payment(callback: types.CallbackQuery):
-    _, invoice_id_str, bot_id_str, plan_id_str = callback.data.split(":")
-    invoice_id = int(invoice_id_str)
-    bot_id = int(bot_id_str)
-    plan_id = int(plan_id_str)
-    user_id = callback.message.from_user.id
+    """
+    Проверка оплаты через CryptoBot
+    """
+    try:
+        _, invoice_id_str, bot_id_str, plan_id_str = callback.data.split(":")
+        invoice_id = int(invoice_id_str)
+        bot_id = int(bot_id_str)
+        plan_id = int(plan_id_str)
+    except Exception as e:
+        logger.exception(f"Ошибка парсинга callback_data: {e}")
+        await callback.answer("❌ Ошибка данных", show_alert=True)
+        return
+
+    user_id = callback.from_user.id
     language = await get_user_language(user_id)
 
     crypto = AioCryptoPay(CRYPTO_PAY_TOKEN)
-    invoice = await crypto.get_invoices(invoice_ids=[invoice_id])
-    await crypto.close()
 
-    if not invoice or invoice.status != "paid":
-        localized_message = await get_localized_message(language, "not_paid")
-        await callback.answer(localized_message, show_alert=True)
+    try:
+        invoices = await crypto.get_invoices(invoice_ids=[invoice_id])
+        await crypto.close()
+
+        if not invoices or len(invoices) == 0:
+            localized_message = await get_localized_message(language, "not_paid")
+            await callback.answer(localized_message, show_alert=True)
+            return
+
+        invoice = invoices[0]
+
+        if invoice.status != "paid":
+            localized_message = await get_localized_message(language, "not_paid")
+            await callback.answer(localized_message, show_alert=True)
+            return
+
+    except Exception as e:
+        logger.exception(f"Ошибка при проверке инвойса: {e}")
+        await callback.answer("❌ Ошибка проверки оплаты", show_alert=True)
         return
 
     localized_message = await get_localized_message(language, "paid")
     await callback.message.edit_text(localized_message)
+
     resp = await create_mock_payment(
-        telegram_id=callback.message.from_user.id,
+        telegram_id=user_id,
         bot_id=bot_id,
         plan_id=plan_id,
         method="crypto"
@@ -130,7 +164,7 @@ async def check_crypto_payment(callback: types.CallbackQuery):
                     language=language
                 )
         except Exception as e:
-            logger.exception("Failed to send admin notification: %s", e)
+            logger.exception("Failed to send purchase notification: %s", e)
     else:
         localized_message = await get_localized_message(language, 'paid_but_not_activated')
         await callback.message.answer(localized_message, reply_markup=back_keyboard())
@@ -204,7 +238,6 @@ async def successful_payment_handler(message: types.Message):
         plan_id=plan_id,
         method='stars'
     )
-    print(resp)
     if resp.get("status") == "success":
         localized_message = await get_localized_message(language, 'stars_payment_success')
         await message.answer(localized_message)

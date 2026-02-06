@@ -151,6 +151,18 @@ class Command(BaseCommand):
                 'message_en': 'Select a payment method',
                 'message_uz': 'To\'lov usulini tanlang',
             },
+            {
+                'identifier': 'check_crypto_pay',
+                'message_ru': '✅ Проверить оплату',
+                'message_en': '✅ Check payment',
+                'message_uz': '✅ To\'lovni tekshirish',
+            },
+            {
+                'identifier': 'message_check_crypto_pay',
+                'message_ru': '⚠️ После оплаты нажмите кнопку ✅ Проверить оплату',
+                'message_en': '⚠️ After payment, click the ✅ Check payment button',
+                'message_uz': '⚠️ Toʻlovni amalga oshirgandan soʻng ✅ Toʻlovni tekshirish tugmasini bosing',
+            }
         ]
 
         created_count = 0
