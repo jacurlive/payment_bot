@@ -50,6 +50,15 @@ async def get_plans_for_bot(bot_id):
     return result
 
 
+async def get_bots_with_plans():
+    bots = await get_all_bots()
+    result = []
+    for bot in bots:
+        plans = await get_plans_for_bot(bot["id"])
+        if any(p.get("is_active") for p in plans):
+            result.append(bot)
+    return result
+
 async def get_payment_methods():
     resp = await request("GET", "/api/methods/")
     if resp.status_code != 200:

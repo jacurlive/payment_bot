@@ -1,5 +1,5 @@
 from aiogram import types, F, Router
-from ..core.utils import get_all_bots, get_user_language
+from ..core.utils import get_bots_with_plans, get_user_language
 from ..core.localization import get_localized_message
 from ..keyboards.bots import bots_keyboard
 import logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 @router.callback_query(F.data == "cancel")
 async def handle_cancel(callback: types.CallbackQuery):
     """Возврат на главный экран выбора бота"""
-    bots = await get_all_bots()
+    bots = await get_bots_with_plans()
     user_id = callback.from_user.id
     language = await get_user_language(user_id)
 

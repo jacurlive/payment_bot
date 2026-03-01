@@ -2,7 +2,7 @@ from aiogram import Router, types, F
 from aiogram.filters import Command, CommandObject
 
 from ..core.localization import get_localized_message
-from ..core.utils import get_all_bots, get_bot_by_username, get_plans_for_bot, get_user_language, create_user, update_user_language
+from ..core.utils import get_all_bots, get_bots_with_plans, get_bot_by_username, get_plans_for_bot, get_user_language, create_user, update_user_language
 from ..keyboards.bots import bots_keyboard
 from ..keyboards.language import language_selection_keyboard
 from ..keyboards.plans import plans_keyboard
@@ -55,7 +55,7 @@ async def start_handler(message: types.Message, command: CommandObject):
         )
         return
 
-    bots = await get_all_bots()
+    bots = await get_bots_with_plans()
     if not bots:
         await message.answer(
             await get_localized_message(language, "not_available_bot")
@@ -79,7 +79,7 @@ async def select_language(callback: types.CallbackQuery):
 
     await callback.message.edit_text(
         await get_localized_message(language, "which_bot"),
-        reply_markup=bots_keyboard(await get_all_bots())
+        reply_markup=bots_keyboard(await get_bots_with_plans())
     )
     await callback.answer()
 
@@ -114,7 +114,7 @@ async def select_bot_callback(callback: types.CallbackQuery):
     localized_message_1 = await get_localized_message(language, "choice_bot")
     localized_message_2 = await get_localized_message(language, "choice_plan")
     await callback.message.edit_text(
-        f"{localized_message_1} <b>{backend_bot['username']}</b>. {localized_message_2}:",
+        f"{localized_message_1} <b>@{backend_bot['username']}</b>. {localized_message_2}:",
         reply_markup=plans_keyboard(plans, backend_bot["id"]),
         parse_mode="html"
     )
