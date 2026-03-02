@@ -48,7 +48,7 @@ async def start_handler(message: types.Message, command: CommandObject):
 
         await message.answer(
             f"{await get_localized_message(language, 'choice_bot')} "
-            f"<b>{backend_bot['username']}</b>. "
+            f"<b>@{backend_bot['username']}</b>. "
             f"{await get_localized_message(language, 'choice_plan')}",
             reply_markup=plans_keyboard(plans, backend_bot["id"]),
             parse_mode="html"
