@@ -25,7 +25,7 @@ async def get_jwt_token():
             data = resp.json()
             ACCESS_TOKEN = data["access"]
             REFRESH_TOKEN = data["refresh"]
-            TOKEN_EXPIRES = datetime.datetime.utcnow() + datetime.timedelta(days=30)
+            TOKEN_EXPIRES = datetime.datetime.utcnow() + datetime.timedelta(days=6)
             return ACCESS_TOKEN
         logger.error("JWT error: %s", resp.text)
     except Exception as e:
