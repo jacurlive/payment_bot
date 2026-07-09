@@ -28,6 +28,8 @@ async def send_purchase_notification(user, bot_obj, plan, payment_method, amount
         "crypto": "CryptoBot",
         "stars": "Telegram Stars",
         "russian_card": "Russian Card",
+        "platega_card": "Platega Card",
+        "platega_sbp": "Platega SBP",
         "stub": "Stub"
     }
 

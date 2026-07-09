@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 
 from rest_framework import viewsets, status
@@ -7,7 +8,8 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum, Count
 from openpyxl import Workbook
@@ -18,6 +20,7 @@ from datetime import datetime, timedelta
 from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentMethod, Messages, BotPlan
 from .utils import send_test_message_sync, format_message, send_telegram_message_http
 from .bot_api import add_subscription_to_bot, delete_subscription_from_bot
+from .platega_client import get_platega_transaction, PLATEGA_MERCHANT_ID, PLATEGA_SECRET
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
@@ -705,3 +708,110 @@ def sync_subscription_status(request):
             {"success": False, "message": f"❌ Неожиданная ошибка: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@csrf_exempt
+def platega_webhook(request):
+    """
+    Webhook для приёма уведомлений об изменении статуса платежа от Platega (карта / СБП).
+
+    Регистрируется вне префикса /api/ (см. root/urls.py), т.к. вызывается внешним
+    сервером Platega и не должен попадать под IPWhitelistMiddleware.
+
+    Callback от Platega не содержит payload, поэтому по id транзакции дополнительно
+    запрашивается GET /transaction/{id}, откуда берётся payload с нашими
+    telegram_id/bot_id/plan_id/method.
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "method not allowed"}, status=405)
+
+    if not request.body:
+        # Platega присылает пустой POST для проверки доступности URL — должны ответить 200
+        return JsonResponse({"status": "OK"})
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        logger.warning("Platega webhook: не удалось разобрать тело запроса")
+        return JsonResponse({"status": "OK"})
+
+    if PLATEGA_MERCHANT_ID and PLATEGA_SECRET:
+        merchant_id = request.headers.get("X-MerchantId")
+        secret = request.headers.get("X-Secret")
+        if merchant_id != PLATEGA_MERCHANT_ID or secret != PLATEGA_SECRET:
+            logger.warning("Platega webhook: неверные X-MerchantId/X-Secret")
+            return JsonResponse({"status": "unauthorized"}, status=401)
+
+    transaction_id = data.get("id")
+    status_value = data.get("status")
+
+    if not transaction_id or status_value != "CONFIRMED":
+        return JsonResponse({"status": "OK"})
+
+    if Payment.objects.filter(transaction_id=transaction_id).exists():
+        logger.info(f"Platega webhook: транзакция {transaction_id} уже обработана")
+        return JsonResponse({"status": "OK"})
+
+    transaction = get_platega_transaction(transaction_id)
+    if not transaction:
+        logger.error(f"Platega webhook: не удалось получить данные транзакции {transaction_id}")
+        return JsonResponse({"status": "OK"})
+
+    payload = transaction.get("payload") or ""
+    try:
+        telegram_id_str, bot_id_str, plan_id_str, method = payload.split(":")
+        telegram_id, bot_id, plan_id = int(telegram_id_str), int(bot_id_str), int(plan_id_str)
+    except (ValueError, AttributeError):
+        logger.error(f"Platega webhook: некорректный payload у транзакции {transaction_id}: {payload!r}")
+        return JsonResponse({"status": "OK"})
+
+    try:
+        bot_obj = Bot.objects.get(id=bot_id)
+        plan = SubscriptionPlan.objects.get(id=plan_id)
+    except (Bot.DoesNotExist, SubscriptionPlan.DoesNotExist):
+        logger.error(f"Platega webhook: бот {bot_id} или план {plan_id} не найден (транзакция {transaction_id})")
+        return JsonResponse({"status": "OK"})
+
+    user, _ = User.objects.get_or_create(telegram_id=telegram_id)
+
+    start = timezone.now()
+    end = start + timezone.timedelta(days=plan.duration_days) if plan.duration_days else None
+
+    sub = Subscription.objects.create(
+        user=user,
+        bot=bot_obj,
+        plan=plan,
+        start_date=start,
+        end_date=end,
+        is_active=True
+    )
+
+    Payment.objects.create(
+        user=user,
+        bot=bot_obj,
+        subscription=sub,
+        method=method,
+        amount=plan.price_usdt,
+        status="success",
+        transaction_id=transaction_id
+    )
+
+    logger.info(f"Platega webhook: подписка активирована для {telegram_id} (транзакция {transaction_id}, метод {method})")
+
+    try:
+        message_template = Messages.objects.filter(identifier="subscription_purchased").first()
+        if message_template and bot_obj.bot_token:
+            language = user.language or "ru"
+            message_text = getattr(message_template, f"message_{language}", None) or message_template.message_ru
+            if message_text:
+                notify_end_date = end or (timezone.now() + timedelta(days=plan.duration_days or 30))
+                formatted_message = format_message(message_text, notify_end_date)
+                send_telegram_message_http(
+                    bot_token=bot_obj.bot_token,
+                    chat_id=telegram_id,
+                    text=formatted_message
+                )
+    except Exception as e:
+        logger.exception(f"Platega webhook: ошибка при отправке уведомления пользователю {telegram_id}: {e}")
+
+    return JsonResponse({"status": "OK"})

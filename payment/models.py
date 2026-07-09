@@ -114,6 +114,8 @@ class Payment(models.Model):
         ("crypto", "CryptoBot"),
         ("stars", "Telegram Stars"),
         ("russian_card", "Russian Card"),
+        ("platega_card", "Platega Card"),
+        ("platega_sbp", "Platega SBP"),
         ("Stub", "Stub")
     )
 

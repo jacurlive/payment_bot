@@ -162,6 +162,8 @@ def send_payment_notification(payment):
         "crypto": "CryptoBot",
         "stars": "Telegram Stars",
         "russian_card": "Russian Card",
+        "platega_card": "Platega Card",
+        "platega_sbp": "Platega SBP",
         "stub": "Stub"
     }
 

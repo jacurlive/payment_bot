@@ -162,14 +162,38 @@ class Command(BaseCommand):
                 'message_ru': '⚠️ После оплаты нажмите кнопку ✅ Проверить оплату',
                 'message_en': '⚠️ After payment, click the ✅ Check payment button',
                 'message_uz': '⚠️ Toʻlovni amalga oshirgandan soʻng ✅ Toʻlovni tekshirish tugmasini bosing',
+            },
+            {
+                'identifier': 'pay_platega_card_btn',
+                'message_ru': '💳 Оплатить картой',
+                'message_en': '💳 Pay by card',
+                'message_uz': '💳 Karta orqali to\'lash',
+            },
+            {
+                'identifier': 'pay_platega_sbp_btn',
+                'message_ru': '🏦 Оплатить через СБП',
+                'message_en': '🏦 Pay via SBP',
+                'message_uz': '🏦 SBP orqali to\'lash',
+            },
+            {
+                'identifier': 'platega_invoice_error',
+                'message_ru': '❌ Ошибка при создании платежа. Попробуйте позже.',
+                'message_en': '❌ Failed to create a payment. Please try again later.',
+                'message_uz': '❌ To\'lov yaratishda xatolik. Keyinroq urinib ko\'ring.',
+            },
+            {
+                'identifier': 'platega_payment_confirmed',
+                'message_ru': '✅ Оплата подтверждена! Подписка будет активирована в течение нескольких секунд.',
+                'message_en': '✅ Payment confirmed! Your subscription will be activated within a few seconds.',
+                'message_uz': '✅ To\'lov tasdiqlandi! Obuna bir necha soniya ichida faollashtiriladi.',
             }
         ]
 
         created_count = 0
-        updated_count = 0
+        skipped_count = 0
 
         for data in messages_data:
-            message, created = Messages.objects.update_or_create(
+            message, created = Messages.objects.get_or_create(
                 identifier=data['identifier'],
                 defaults={
                     'message_ru': data['message_ru'],
@@ -182,9 +206,9 @@ class Command(BaseCommand):
                 created_count += 1
                 self.stdout.write(self.style.SUCCESS(f'✅ Создано: {data["identifier"]}'))
             else:
-                updated_count += 1
-                self.stdout.write(self.style.WARNING(f'🔄 Обновлено: {data["identifier"]}'))
+                skipped_count += 1
+                self.stdout.write(self.style.WARNING(f'⏭️ Пропущено (уже существует): {data["identifier"]}'))
 
         self.stdout.write(self.style.SUCCESS(f'\n📊 Итого:'))
         self.stdout.write(self.style.SUCCESS(f'   Создано: {created_count}'))
-        self.stdout.write(self.style.SUCCESS(f'   Обновлено: {updated_count}'))
+        self.stdout.write(self.style.SUCCESS(f'   Пропущено (уже существовало): {skipped_count}'))

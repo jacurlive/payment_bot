@@ -18,6 +18,10 @@ def payment_methods_keyboard(bot_id: int, plan_id: int, plan: dict, payment_meth
             text = f"💳 PayMe — {int(float(plan['price_uzs'])):,} UZS"
         elif cb == "pay_russia":
             text = f"💰 РФ оплата — {plan['price_rub']} RUB"
+        elif cb == "pay_card":
+            text = f"💳 Карта — {plan['price_rub']} RUB"
+        elif cb == "pay_sbp":
+            text = f"🏦 СБП — {plan['price_rub']} RUB"
         else:
             text = f"{name}"
 
