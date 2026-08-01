@@ -6,6 +6,7 @@ class Bot(models.Model):
     notification_group_id = models.BigIntegerField(null=True, blank=True)
     bot_token = models.CharField(max_length=255, null=True, blank=True)
     request_port = models.IntegerField(null=True, blank=True)
+    order = models.PositiveIntegerField(null=True, blank=True, verbose_name="Очерёдность")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -137,6 +138,7 @@ class PaymentMethod(models.Model):
     name = models.CharField(max_length=100, unique=True)
     callback_data = models.CharField(max_length=100, unique=True)
     is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(null=True, blank=True, verbose_name="Очерёдность")
 
     class Meta:
         verbose_name = "Способ оплаты"

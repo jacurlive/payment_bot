@@ -60,6 +60,7 @@ class BotSerializer(serializers.ModelSerializer):
             'bot_token',
             'notification_group_id',
             'request_port',
+            'order',
             'created_at',
             'bot_plans'
         ]

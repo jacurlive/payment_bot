@@ -41,8 +41,9 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Bot)
 class BotAdmin(admin.ModelAdmin):
-    list_display = ("id", "username", "title", "created_at")
+    list_display = ("id", "username", "title", "order", "created_at")
     list_display_links = ("username", "title", "created_at")
+    list_editable = ("order",)
 
 
 @admin.register(SubscriptionPlan)
@@ -76,8 +77,9 @@ class PaymentAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "is_active")
+    list_display = ("id", "name", "order", "is_active")
     list_display_links = ("id", "name", "is_active")
+    list_editable = ("order",)
 
 
 @admin.register(Messages)

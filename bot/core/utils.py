@@ -6,6 +6,18 @@ from .notifications import send_purchase_notification
 
 logger = logging.getLogger(__name__)
 
+def sort_by_order(items):
+    """
+    Сортирует элементы по полю "order", если оно задано.
+    Элементы без order (None/отсутствует) добавляются в конец
+    в исходном порядке — бэкенд может как присылать order у всех,
+    так и не присылать его вовсе.
+    """
+    with_order = [i for i in items if i.get("order") is not None]
+    without_order = [i for i in items if i.get("order") is None]
+    with_order.sort(key=lambda i: i["order"])
+    return with_order + without_order
+
 async def get_all_bots():
     resp = await request("GET", "/api/bots/")
     return resp.json() if resp.status_code == 200 else []
@@ -57,7 +69,7 @@ async def get_bots_with_plans():
         plans = await get_plans_for_bot(bot["id"])
         if any(p.get("is_active") for p in plans):
             result.append(bot)
-    return result
+    return sort_by_order(result)
 
 async def get_payment_methods():
     resp = await request("GET", "/api/methods/")
@@ -65,7 +77,8 @@ async def get_payment_methods():
         return []
 
     methods = resp.json()
-    return [m for m in methods if m.get("is_active") is True]
+    active_methods = [m for m in methods if m.get("is_active") is True]
+    return sort_by_order(active_methods)
 
 async def create_mock_payment(telegram_id, bot_id, plan_id, method):
     payload = {"telegram_id": telegram_id, "bot_id": bot_id, "plan_id": plan_id, "method": method}
