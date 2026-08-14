@@ -12,7 +12,7 @@ ADMIN_CHANNEL_ID = int(os.getenv("ADMIN_CHANNEL_ID", "0"))
 BACKEND_USERNAME = os.getenv("BACKEND_USERNAME")
 BACKEND_PASSWORD = os.getenv("BACKEND_PASSWORD")
 
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="html"))
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="html", link_preview_is_disabled=True))
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is missing in .env")

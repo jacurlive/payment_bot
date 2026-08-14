@@ -75,6 +75,7 @@ def get_bot_token():
 
 async def _send_message_async(user_id: int, message_text: str) -> Dict[str, any]:
     from aiogram import Bot
+    from aiogram.client.default import DefaultBotProperties
 
     token = get_bot_token()
     if not token:
@@ -84,7 +85,7 @@ async def _send_message_async(user_id: int, message_text: str) -> Dict[str, any]
         }
 
     # Создаём НОВЫЙ экземпляр бота (не используем глобальный)
-    bot = Bot(token=token)
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode="html", link_preview_is_disabled=True))
 
     try:
         await bot.send_message(chat_id=user_id, text=message_text)
