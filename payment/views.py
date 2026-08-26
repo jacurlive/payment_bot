@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
@@ -21,7 +21,7 @@ from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentM
 from .utils import send_test_message_sync, format_message, send_telegram_message_http
 from .bot_api import add_subscription_to_bot, delete_subscription_from_bot
 from .platega_client import get_platega_transaction, PLATEGA_MERCHANT_ID, PLATEGA_SECRET
-from .pagination import UserPagination
+from .pagination import UserPagination, PaymentPagination, SubscriptionPagination
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
@@ -362,7 +362,8 @@ class MessageViewSet(viewsets.ModelViewSet):
 
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
-    queryset = Subscription.objects.all()
+    queryset = Subscription.objects.all().order_by("-created_at")
+    pagination_class = SubscriptionPagination
 
     def get_serializer_class(self):
         if self.action in ["list", "retrieve"]:
@@ -371,12 +372,26 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
-    queryset = Payment.objects.all()
+    queryset = Payment.objects.all().order_by("-created_at")
+    pagination_class = PaymentPagination
 
     def get_serializer_class(self):
         if self.action in ["create", "mock"]:
             return PaymentCreateSerializer
         return PaymentReadSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get("search")
+        if search and search.strip():
+            s = search.strip()
+            queryset = queryset.filter(
+                Q(transaction_id__icontains=s)
+                | Q(status__icontains=s)
+                | Q(method__icontains=s)
+                | Q(user__telegram_id__icontains=s)
+            )
+        return queryset
 
     @action(detail=False, methods=["post"])
     def mock(self, request):
@@ -384,6 +399,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
         bot_id = request.data.get("bot_id")
         plan_id = request.data.get("plan_id")
         method = request.data.get("method", "stub")
+
+        if not telegram_id:
+            return Response({"detail": "telegram_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         user, _ = User.objects.get_or_create(telegram_id=telegram_id)
         bot = get_object_or_404(Bot, id=bot_id)
@@ -824,3 +842,35 @@ def platega_webhook(request):
         logger.exception(f"Platega webhook: ошибка при отправке уведомления пользователю {telegram_id}: {e}")
 
     return JsonResponse({"status": "OK"})
+
+
+@api_view(["GET"])
+def dashboard_stats(request):
+    today = timezone.now().date()
+
+    total_users = User.objects.count()
+    active_subscriptions = Subscription.objects.filter(is_active=True).count()
+
+    today_payments_qs = Payment.objects.filter(
+        status="success", created_at__date=today
+    )
+    today_payments = today_payments_qs.count()
+
+    total_revenue = (
+        Payment.objects.filter(status="success")
+        .aggregate(total=Sum("amount"))
+        .get("total") or 0
+    )
+    total_payments = Payment.objects.count()
+
+    return Response({
+        "totalUsers": total_users,
+        "activeSubscriptions": active_subscriptions,
+        "todayPayments": today_payments,
+        "totalRevenue": float(total_revenue),
+        "totalPayments": total_payments,
+        "userGrowth": 0,
+        "subscriptionGrowth": 0,
+        "paymentGrowth": 0,
+        "revenueGrowth": 0,
+    })
