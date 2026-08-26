@@ -21,6 +21,7 @@ from .models import Bot, SubscriptionPlan, User, Subscription, Payment, PaymentM
 from .utils import send_test_message_sync, format_message, send_telegram_message_http
 from .bot_api import add_subscription_to_bot, delete_subscription_from_bot
 from .platega_client import get_platega_transaction, PLATEGA_MERCHANT_ID, PLATEGA_SECRET
+from .pagination import UserPagination
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
@@ -328,9 +329,17 @@ class BotPlanViewSet(viewsets.ModelViewSet):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by("-created_at")
     serializer_class = UserSerializer
     lookup_field = "telegram_id"
+    pagination_class = UserPagination
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get("search")
+        if search and search.strip():
+            queryset = queryset.filter(telegram_id__icontains=search.strip())
+        return queryset
 
 
 class PaymentMethodViewSet(viewsets.ModelViewSet):
