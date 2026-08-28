@@ -22,6 +22,7 @@ from .utils import send_test_message_sync, format_message, send_telegram_message
 from .bot_api import add_subscription_to_bot, delete_subscription_from_bot
 from .platega_client import get_platega_transaction, PLATEGA_MERCHANT_ID, PLATEGA_SECRET
 from .pagination import UserPagination, PaymentPagination, SubscriptionPagination
+from .notifications import notify_new_subscription
 from .serializers import (
     BotSerializer,
     SubscriptionPlanSerializer,
@@ -370,6 +371,10 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             return SubscriptionReadSerializer
         return SubscriptionCreateSerializer
 
+    def perform_create(self, serializer):
+        subscription = serializer.save()
+        notify_new_subscription(subscription)
+
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all().order_by("-created_at")
@@ -427,6 +432,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
             amount=plan.price_usdt,
             status="success"
         )
+
+        notify_new_subscription(sub, payment)
 
         return Response(
             PaymentReadSerializer(payment).data,
@@ -813,7 +820,7 @@ def platega_webhook(request):
         is_active=True
     )
 
-    Payment.objects.create(
+    payment = Payment.objects.create(
         user=user,
         bot=bot_obj,
         subscription=sub,
@@ -822,6 +829,8 @@ def platega_webhook(request):
         status="success",
         transaction_id=transaction_id
     )
+
+    notify_new_subscription(sub, payment)
 
     logger.info(f"Platega webhook: подписка активирована для {telegram_id} (транзакция {transaction_id}, метод {method})")
 
