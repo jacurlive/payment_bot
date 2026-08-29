@@ -429,7 +429,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
             bot=bot,
             subscription=sub,
             method=method,
-            amount=plan.price_usdt,
+            amount=plan.price_for_method(method),
             status="success"
         )
 
@@ -825,7 +825,7 @@ def platega_webhook(request):
         bot=bot_obj,
         subscription=sub,
         method=method,
-        amount=plan.price_usdt,
+        amount=plan.price_for_method(method),
         status="success",
         transaction_id=transaction_id
     )

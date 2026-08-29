@@ -30,12 +30,28 @@ class SubscriptionPlan(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Какое поле цены использовать для какого способа оплаты.
+    # Чтобы добавить новый способ — достаточно добавить запись сюда.
+    PRICE_FIELD_BY_METHOD = {
+        "payme": "price_uzs",
+        "click": "price_uzs",
+        "crypto": "price_usdt",
+        "stars": "price_stars",
+        "russian_card": "price_rub",
+        "platega_card": "price_rub",
+        "platega_sbp": "price_rub",
+    }
+
     class Meta:
         verbose_name = "План подписки"
         verbose_name_plural = "Планы подписок"
 
     def __str__(self):
         return self.name
+
+    def price_for_method(self, method):
+        field = self.PRICE_FIELD_BY_METHOD.get(method, "price_usdt")
+        return getattr(self, field, None) or self.price_usdt
 
 
 class BotPlan(models.Model):
